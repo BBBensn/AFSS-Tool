@@ -1,7 +1,8 @@
 from pathlib import Path
 
-from flask import Blueprint, Flask, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Flask, flash, jsonify, redirect, render_template, request, url_for
 
+from afss.artist_editor.import_parsers import parse_pasted_bio
 from afss.artist_editor.store import (
     artist_from_form,
     delete_artist,
@@ -65,6 +66,14 @@ def build_artist_editor_blueprint(config_dir: Path) -> Blueprint:
         upsert_artist(artists_path, entry, original_id)
         flash(f"'{entry['canonical_name']}' gespeichert.", "ok")
         return redirect(url_for("artist_editor.index"))
+
+    @bp.route("/parse-bio", methods=["POST"])
+    def parse_bio():
+        """Parst manuell eingefügten Bio-Text lokal - kein Netzwerkzugriff. Der Nutzer
+        kopiert den Text selbst aus seinem eigenen Browser."""
+        source = request.form.get("source", "")
+        text = request.form.get("text", "")
+        return jsonify(parse_pasted_bio(source, text))
 
     @bp.route("/delete/<artist_id>", methods=["POST"])
     def delete(artist_id: str):

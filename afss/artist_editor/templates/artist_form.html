@@ -104,6 +104,30 @@
   </section>
 
   <section>
+    <h2>Aus Wiki-Text übernehmen (optional)</h2>
+    <p class="hint" style="margin-bottom: 0.6rem;">
+      Text von Babepedia/Boobpedia/Pornopedia im eigenen Browser kopieren und hier einfügen — wird
+      lokal geparst, es wird nichts abgerufen. Füllt nur leere Felder, bereits Ausgefülltes bleibt unangetastet.
+    </p>
+    <div class="row" style="align-items: end; grid-template-columns: auto 1fr auto;">
+      <div class="field">
+        <label for="bio-source">Quelle</label>
+        <select id="bio-source">
+          <option value="babepedia">Babepedia</option>
+          <option value="boobpedia">Boobpedia</option>
+          <option value="pornopedia">Pornopedia</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="bio-text">Kopierter Text</label>
+        <textarea id="bio-text" placeholder="Bio-Block hier einfügen..." style="min-height: 5rem;"></textarea>
+      </div>
+      <button type="button" id="bio-apply-btn">Übernehmen</button>
+    </div>
+    <p class="hint" id="bio-apply-result"></p>
+  </section>
+
+  <section>
     <h2>Demografie</h2>
     <div class="field" style="margin-bottom: 1rem;">
       <label>Geburtsdatum (nur so genau wie bekannt — Tag und Monat sind optional)</label>
@@ -290,6 +314,56 @@ nameInput.addEventListener('input', function () {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
   idInput.value = slug ? 'artist_' + slug : '';
+});
+
+const BIO_ARRAY_FIELDS = new Set(['aliases', 'occupation', 'pierce_locations']);
+const BIO_CHECKBOX_FIELDS = new Set(['is_currently_active', 'number_videos_is_lower_bound']);
+
+document.getElementById('bio-apply-btn').addEventListener('click', function () {
+  const source = document.getElementById('bio-source').value;
+  const text = document.getElementById('bio-text').value;
+  const resultEl = document.getElementById('bio-apply-result');
+  if (!text.trim()) {
+    resultEl.textContent = 'Kein Text eingefügt.';
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('source', source);
+  formData.append('text', text);
+
+  fetch('{{ url_for("artist_editor.parse_bio") }}', { method: 'POST', body: formData })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      let filled = 0;
+      let skipped = 0;
+      Object.keys(data).forEach(function (key) {
+        const el = document.getElementsByName(key)[0];
+        if (!el) return;
+
+        if (BIO_CHECKBOX_FIELDS.has(key)) {
+          if (data[key] && !el.checked) { el.checked = true; filled++; }
+          return;
+        }
+
+        let value = data[key];
+        if (BIO_ARRAY_FIELDS.has(key)) {
+          value = Array.isArray(value) ? value.join(', ') : value;
+        }
+        if (!value) return;
+
+        if (el.value.trim()) {
+          skipped++;
+        } else {
+          el.value = value;
+          filled++;
+        }
+      });
+      resultEl.textContent = filled + ' Felder ausgefüllt, ' + skipped + ' bereits vorhanden (unangetastet).';
+    })
+    .catch(function () {
+      resultEl.textContent = 'Fehler beim Verarbeiten.';
+    });
 });
 </script>
 </body>

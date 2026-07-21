@@ -155,6 +155,33 @@ def test_save_with_partial_birth_date(tmp_path):
     assert entry["default_tags"]["birth_date"] == "2001"
 
 
+def test_parse_bio_route_returns_parsed_fields(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.post(
+        "/artists/parse-bio",
+        data={"source": "babepedia", "text": "Hair color: Brown\nEye color: Grey"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json() == {"hair_color": "Brown", "eye_color": "Grey"}
+
+
+def test_parse_bio_route_empty_text_returns_empty_json(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.post("/artists/parse-bio", data={"source": "babepedia", "text": ""})
+
+    assert resp.status_code == 200
+    assert resp.get_json() == {}
+
+
 def test_delete_removes_artist(tmp_path):
     config_dir = tmp_path / "config"
     _seed(config_dir)
