@@ -59,6 +59,28 @@ def test_new_form_renders(tmp_path):
     assert b"canonical_name" in resp.data
 
 
+def test_new_form_defaults_gender_fields_to_female(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.get("/artists/new")
+    assert b'id="gender_identity" name="gender_identity" list="gender-list" value="female"' in resp.data
+    assert b'id="sex_assigned_at_birth" name="sex_assigned_at_birth" list="sex-list" value="female"' in resp.data
+
+
+def test_edit_form_does_not_override_existing_gender(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed(config_dir)  # artist_alpha hat gender_identity 'female' bereits gesetzt
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.get("/artists/edit/artist_alpha")
+    # bestehender Wert bleibt weiterhin exakt 'female' (kein Nebeneffekt), nicht neu überschrieben
+    assert b'id="gender_identity" name="gender_identity" list="gender-list" value="female"' in resp.data
+
+
 def test_edit_form_prefills_existing_values(tmp_path):
     config_dir = tmp_path / "config"
     _seed(config_dir)

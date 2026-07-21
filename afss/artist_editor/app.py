@@ -25,10 +25,13 @@ def build_artist_editor_blueprint(config_dir: Path) -> Blueprint:
 
     @bp.route("/new")
     def new():
+        # Die große Mehrheit der Einträge ist female (Identity & Sex Assigned at Birth) -
+        # als Vorbelegung sparen, bleibt jederzeit überschreibbar/leerbar (z.B. für Duos).
+        tags = tags_with_defaults({"gender_identity": "female", "sex_assigned_at_birth": "female"})
         return render_template(
             "artist_form.html",
             artist=None,
-            tags=tags_with_defaults({}),
+            tags=tags,
             birth=parse_partial_date(""),
             original_id="",
         )
