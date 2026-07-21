@@ -4,7 +4,9 @@ from flask import Blueprint, Flask, flash, redirect, render_template, request, u
 
 from afss.artist_editor.store import (
     artist_from_form,
+    delete_artist,
     load_artists,
+    parse_partial_date,
     slugify,
     tags_with_defaults,
     upsert_artist,
@@ -23,7 +25,11 @@ def build_artist_editor_blueprint(config_dir: Path) -> Blueprint:
     @bp.route("/new")
     def new():
         return render_template(
-            "artist_form.html", artist=None, tags=tags_with_defaults({}), original_id=""
+            "artist_form.html",
+            artist=None,
+            tags=tags_with_defaults({}),
+            birth=parse_partial_date(""),
+            original_id="",
         )
 
     @bp.route("/edit/<artist_id>")
@@ -33,10 +39,12 @@ def build_artist_editor_blueprint(config_dir: Path) -> Blueprint:
         if artist is None:
             flash(f"Artist '{artist_id}' nicht gefunden.", "error")
             return redirect(url_for("artist_editor.index"))
+        tags = tags_with_defaults(artist.get("default_tags", {}))
         return render_template(
             "artist_form.html",
             artist=artist,
-            tags=tags_with_defaults(artist.get("default_tags", {})),
+            tags=tags,
+            birth=parse_partial_date(tags.get("birth_date", "")),
             original_id=artist_id,
         )
 
@@ -56,6 +64,19 @@ def build_artist_editor_blueprint(config_dir: Path) -> Blueprint:
 
         upsert_artist(artists_path, entry, original_id)
         flash(f"'{entry['canonical_name']}' gespeichert.", "ok")
+        return redirect(url_for("artist_editor.index"))
+
+    @bp.route("/delete/<artist_id>", methods=["POST"])
+    def delete(artist_id: str):
+        artists = load_artists(artists_path)
+        artist = next((a for a in artists if a.get("id") == artist_id), None)
+        name = artist["canonical_name"] if artist else artist_id
+
+        if delete_artist(artists_path, artist_id):
+            flash(f"'{name}' gelöscht.", "ok")
+        else:
+            flash(f"Artist '{artist_id}' nicht gefunden.", "error")
+
         return redirect(url_for("artist_editor.index"))
 
     return bp

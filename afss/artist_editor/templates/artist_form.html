@@ -6,42 +6,66 @@
 <title>AFSS Artists — {{ "Bearbeiten" if artist else "Neu" }}</title>
 <style>
   :root {
-    --bg: #ffffff; --fg: #222222; --muted: #666666; --border: #cccccc;
+    --bg: #ffffff; --fg: #222222; --muted: #777777; --border: #dddddd;
     --btn-bg: #fafafa; --btn-hover: #eeeeee; --field-bg: #ffffff;
+    --danger: #c0392b; --danger-bg: #fdecea;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1c1c1e; --fg: #eaeaea; --muted: #a0a0a0; --border: #444444;
-      --btn-bg: #2f2f31; --btn-hover: #3a3a3c; --field-bg: #2a2a2c;
+      --bg: #1a1a1c; --fg: #eaeaea; --muted: #949494; --border: #3a3a3c;
+      --btn-bg: #2a2a2c; --btn-hover: #353537; --field-bg: #232325;
+      --danger: #e57368; --danger-bg: #3a1f1f;
     }
   }
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: var(--fg); background: var(--bg); max-width: 900px; }
-  h1 { margin-bottom: 1rem; }
-  fieldset { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1.2rem; padding: 1rem 1.2rem; }
-  legend { padding: 0 0.4rem; font-weight: 600; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1.2rem; }
-  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.8rem 1.2rem; }
-  .field { display: flex; flex-direction: column; gap: 0.25rem; }
-  .field.full { grid-column: 1 / -1; }
-  label { font-size: 0.85em; color: var(--muted); }
-  input[type=text], input[type=number], input[type=date], textarea {
-    padding: 0.4rem; background: var(--field-bg); color: var(--fg); border: 1px solid var(--border);
-    border-radius: 4px; font-size: 1em; font-family: inherit;
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0 auto; padding: 2.5rem 1.5rem 4rem;
+    color: var(--fg); background: var(--bg); max-width: 760px; line-height: 1.4;
   }
+  h1 { font-size: 1.4rem; margin: 0 0 1.5rem; }
+  .top-nav { margin-bottom: 1.5rem; }
+  .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .top-nav a:hover { color: var(--fg); }
+  section { margin-bottom: 2rem; }
+  section h2 {
+    font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+    font-weight: 600; margin: 0 0 0.8rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border);
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.5rem; margin-bottom: 1rem; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .row-3.narrow { grid-template-columns: 0.8fr 0.8fr 0.8fr; max-width: 20rem; }
+  .field { display: flex; flex-direction: column; gap: 0.3rem; }
+  .field.full { grid-column: 1 / -1; }
+  label { font-size: 0.8rem; color: var(--muted); }
+  input[type=text], input[type=number], textarea {
+    padding: 0.45rem 0.55rem; background: var(--field-bg); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 5px; font-size: 0.95rem; font-family: inherit; width: 100%;
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--muted); outline-offset: -1px; }
   textarea { resize: vertical; min-height: 3rem; }
+  .checkbox-row { display: flex; gap: 1.5rem; flex-wrap: wrap; }
   .checkbox-field { flex-direction: row; align-items: center; gap: 0.5rem; }
-  .checkbox-field label { font-size: 1em; color: var(--fg); }
-  .actions { display: flex; gap: 0.6rem; margin-top: 1rem; }
-  button, a.btn { padding: 0.5rem 1rem; border: 1px solid var(--muted); border-radius: 4px;
-    background: var(--btn-bg); color: var(--fg); text-decoration: none; font-size: 1em; cursor: pointer; }
+  .checkbox-field label { font-size: 0.95rem; color: var(--fg); }
+  .hint { font-size: 0.78rem; color: var(--muted); margin: 0.3rem 0 0; }
+  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; }
+  .actions-left { display: flex; gap: 0.6rem; }
+  button, a.btn {
+    padding: 0.5rem 1.1rem; border: 1px solid var(--border); border-radius: 5px;
+    background: var(--btn-bg); color: var(--fg); text-decoration: none; font-size: 0.9rem; cursor: pointer;
+  }
   button:hover, a.btn:hover { background: var(--btn-hover); }
-  button[type=submit] { font-weight: 600; }
-  .flash { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.6rem 0; }
-  .flash-error { background: #3a1f1f; border: 1px solid #a94442; }
+  button[type=submit] { font-weight: 600; border-color: var(--fg); }
+  .btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-bg); }
+  .flash { padding: 0.6rem 0.9rem; border-radius: 5px; margin-bottom: 1.2rem; font-size: 0.9rem; }
+  .flash-ok { background: #e6f6e6; border: 1px solid #99cc99; color: #1a1a1a; }
+  .flash-error { background: var(--danger-bg); border: 1px solid var(--danger); }
+  @media (prefers-color-scheme: dark) { .flash-ok { background: #123320; border-color: #2e7d4f; color: var(--fg); } }
 </style>
 </head>
 <body>
-<h1>{{ "Artist bearbeiten: " + artist.canonical_name if artist else "Neuer Artist" }}</h1>
+<div class="top-nav"><a href="{{ url_for('artist_editor.index') }}">← Übersicht</a></div>
+<h1>{{ "Bearbeiten: " + artist.canonical_name if artist else "Neuer Artist" }}</h1>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for category, message in messages %}
@@ -52,9 +76,9 @@
 <form method="post" action="{{ url_for('artist_editor.save') }}">
   <input type="hidden" name="original_id" value="{{ original_id }}">
 
-  <fieldset>
-    <legend>Identität</legend>
-    <div class="grid">
+  <section>
+    <h2>Identität</h2>
+    <div class="row">
       <div class="field">
         <label for="canonical_name">Canonical Name</label>
         <input type="text" id="canonical_name" name="canonical_name" autofocus
@@ -72,16 +96,24 @@
         <label for="real_name">Real Name</label>
         <input type="text" id="real_name" name="real_name" value="{{ artist.real_name if artist else '' }}">
       </div>
-      <div class="field checkbox-field">
+      <div class="field checkbox-field" style="align-self: end;">
         <input type="checkbox" id="active" name="active" {{ "checked" if (artist is none) or artist.active else "" }}>
         <label for="active">Aktiv (wird für Matching verwendet)</label>
       </div>
     </div>
-  </fieldset>
+  </section>
 
-  <fieldset>
-    <legend>Demografie</legend>
-    <div class="grid-3">
+  <section>
+    <h2>Demografie</h2>
+    <div class="field" style="margin-bottom: 1rem;">
+      <label>Geburtsdatum (nur so genau wie bekannt — Tag und Monat sind optional)</label>
+      <div class="row-3 narrow">
+        <input type="number" name="birth_year" placeholder="Jahr" min="1900" max="2100" value="{{ birth.year if birth.year is not none else '' }}">
+        <input type="number" name="birth_month" placeholder="Monat" min="1" max="12" value="{{ birth.month if birth.month is not none else '' }}">
+        <input type="number" name="birth_day" placeholder="Tag" min="1" max="31" value="{{ birth.day if birth.day is not none else '' }}">
+      </div>
+    </div>
+    <div class="row-3">
       <div class="field">
         <label for="gender_identity">Gender Identity</label>
         <input type="text" id="gender_identity" name="gender_identity" list="gender-list" value="{{ tags.gender_identity }}">
@@ -95,10 +127,6 @@
         <datalist id="sex-list"><option value="female"><option value="male"></datalist>
       </div>
       <div class="field">
-        <label for="birth_date">Birth Date</label>
-        <input type="date" id="birth_date" name="birth_date" value="{{ tags.birth_date }}">
-      </div>
-      <div class="field">
         <label for="nationality">Nationality (ISO)</label>
         <input type="text" id="nationality" name="nationality" value="{{ tags.nationality }}">
       </div>
@@ -106,16 +134,30 @@
         <label for="ethnicity">Ethnicity</label>
         <input type="text" id="ethnicity" name="ethnicity" value="{{ tags.ethnicity }}">
       </div>
-      <div class="field">
+      <div class="field full">
         <label for="occupation">Occupation (kommasepariert)</label>
         <input type="text" id="occupation" name="occupation" value="{{ tags.occupation|join(', ') }}">
       </div>
     </div>
-  </fieldset>
+    <div class="row-3">
+      <div class="field">
+        <label for="birth_place_city">Geburtsort: Stadt</label>
+        <input type="text" id="birth_place_city" name="birth_place_city" value="{{ tags.birth_place.city }}">
+      </div>
+      <div class="field">
+        <label for="birth_place_state">Geburtsort: Bundesland</label>
+        <input type="text" id="birth_place_state" name="birth_place_state" value="{{ tags.birth_place.state }}">
+      </div>
+      <div class="field">
+        <label for="birth_place_country_iso">Geburtsort: Land (ISO)</label>
+        <input type="text" id="birth_place_country_iso" name="birth_place_country_iso" value="{{ tags.birth_place.country_iso }}">
+      </div>
+    </div>
+  </section>
 
-  <fieldset>
-    <legend>Körperliche Merkmale</legend>
-    <div class="grid-3">
+  <section>
+    <h2>Körperliche Merkmale</h2>
+    <div class="row-3">
       <div class="field">
         <label for="height_cm">Height (cm)</label>
         <input type="number" id="height_cm" name="height_cm" value="{{ tags.height_cm }}">
@@ -155,18 +197,6 @@
         </datalist>
       </div>
       <div class="field">
-        <label for="birth_place_city">Geburtsort: Stadt</label>
-        <input type="text" id="birth_place_city" name="birth_place_city" value="{{ tags.birth_place.city }}">
-      </div>
-      <div class="field">
-        <label for="birth_place_state">Geburtsort: Bundesland</label>
-        <input type="text" id="birth_place_state" name="birth_place_state" value="{{ tags.birth_place.state }}">
-      </div>
-      <div class="field">
-        <label for="birth_place_country_iso">Geburtsort: Land (ISO)</label>
-        <input type="text" id="birth_place_country_iso" name="birth_place_country_iso" value="{{ tags.birth_place.country_iso }}">
-      </div>
-      <div class="field">
         <label for="bust_cm">Bust (cm)</label>
         <input type="number" id="bust_cm" name="bust_cm" value="{{ tags.body_measurements_cm.bust_cm }}">
       </div>
@@ -187,11 +217,11 @@
         <input type="text" id="artist_tags" name="artist_tags" value="{{ tags.artist_tags|join(', ') }}">
       </div>
     </div>
-  </fieldset>
+  </section>
 
-  <fieldset>
-    <legend>Aktivität</legend>
-    <div class="grid-3">
+  <section>
+    <h2>Aktivität</h2>
+    <div class="row-3">
       <div class="field">
         <label for="number_videos">Anzahl Videos</label>
         <input type="number" id="number_videos" name="number_videos" value="{{ tags.number_videos if tags.number_videos is not none else '' }}">
@@ -204,6 +234,13 @@
         <label for="active_until_year">Aktiv bis (Jahr)</label>
         <input type="number" id="active_until_year" name="active_until_year" value="{{ tags.active_until_year if tags.active_until_year is not none else '' }}">
       </div>
+      <div class="field full">
+        <label for="priority">Priority</label>
+        <input type="text" id="priority" name="priority" list="priority-list" value="{{ tags.priority }}">
+        <datalist id="priority-list"><option value="main"><option value="side"><option value="guest"></datalist>
+      </div>
+    </div>
+    <div class="checkbox-row">
       <div class="field checkbox-field">
         <input type="checkbox" id="number_videos_is_lower_bound" name="number_videos_is_lower_bound" {{ "checked" if tags.number_videos_is_lower_bound else "" }}>
         <label for="number_videos_is_lower_bound">Anzahl ist Untergrenze (mind.)</label>
@@ -212,27 +249,31 @@
         <input type="checkbox" id="is_currently_active" name="is_currently_active" {{ "checked" if (artist is none) or tags.is_currently_active else "" }}>
         <label for="is_currently_active">Aktuell aktiv</label>
       </div>
-      <div class="field">
-        <label for="priority">Priority</label>
-        <input type="text" id="priority" name="priority" list="priority-list" value="{{ tags.priority }}">
-        <datalist id="priority-list"><option value="main"><option value="side"><option value="guest"></datalist>
-      </div>
     </div>
-  </fieldset>
+  </section>
 
-  <fieldset>
-    <legend>Notizen</legend>
+  <section>
+    <h2>Notizen</h2>
     <div class="field full">
-      <label for="notes">Notes</label>
       <textarea id="notes" name="notes">{{ artist.notes if artist else '' }}</textarea>
     </div>
-  </fieldset>
+  </section>
 
   <div class="actions">
-    <button type="submit">Speichern</button>
-    <a class="btn" href="{{ url_for('artist_editor.index') }}">Abbrechen</a>
+    <div class="actions-left">
+      <button type="submit">Speichern</button>
+      <a class="btn" href="{{ url_for('artist_editor.index') }}">Abbrechen</a>
+    </div>
   </div>
 </form>
+
+{% if artist %}
+<form method="post" action="{{ url_for('artist_editor.delete', artist_id=artist.id) }}"
+      onsubmit="return confirm('{{ artist.canonical_name }} wirklich löschen? Das kann nicht rückgängig gemacht werden.');"
+      style="margin-top: 1rem;">
+  <button type="submit" class="btn-danger">Artist löschen</button>
+</form>
+{% endif %}
 
 <script>
 let idManuallyEdited = {{ "true" if artist else "false" }};

@@ -3,13 +3,14 @@ import re
 from pathlib import Path
 
 _SLUG_NON_ALNUM = re.compile(r"[^a-z0-9]+")
+_PARTIAL_DATE = re.compile(r"^(\d{4})(?:-(\d{2}))(?:-(\d{2}))?$|^(\d{4})$")
 
 
 def slugify(name: str) -> str:
     """Underscore-getrennter Slug, passend zur bestehenden ID-Konvention (z.B. 'artist_eden_ivy').
     Bewusst anders als normalize_name() (Alias-Matching), das Wortgrenzen nicht erhält."""
-    slug = _SLUG_NON_ALNUM.sub("_", name.lower()).strip("_")
-    return slug
+    return _SLUG_NON_ALNUM.sub("_", name.lower()).strip("_")
+
 
 DEFAULT_TAGS = {
     "gender_identity": "",
@@ -65,6 +66,42 @@ def tags_with_defaults(existing: dict) -> dict:
     return merged
 
 
+def parse_partial_date(date_str: str) -> dict:
+    """'1998-03-15' -> {year: 1998, month: 3, day: 15}; '1998-03' -> {..., day: None};
+    '1998' -> {..., month: None, day: None}; alles andere (leer, unparsebar) -> alle None.
+    Geburtsdatum ist oft nur teilweise bekannt - das MUSS abbildbar sein, ohne einen
+    erfundenen Monat/Tag vorzutäuschen."""
+    if not date_str:
+        return {"year": None, "month": None, "day": None}
+    match = _PARTIAL_DATE.match(date_str.strip())
+    if not match:
+        return {"year": None, "month": None, "day": None}
+    if match.group(4):  # nur Jahr, z.B. "1998"
+        return {"year": int(match.group(4)), "month": None, "day": None}
+    year, month, day = match.group(1), match.group(2), match.group(3)
+    return {
+        "year": int(year) if year else None,
+        "month": int(month) if month else None,
+        "day": int(day) if day else None,
+    }
+
+
+def serialize_partial_date(year: str, month: str, day: str) -> str:
+    """Baut aus (teils leeren) Jahr/Monat/Tag-Feldern einen ISO-8601-Präfix-String.
+    Tag ohne Monat wird ignoriert (nicht sinnvoll darstellbar)."""
+    year = (year or "").strip()
+    month = (month or "").strip()
+    day = (day or "").strip()
+    if not year:
+        return ""
+    parts = [year.zfill(4)]
+    if month:
+        parts.append(month.zfill(2))
+        if day:
+            parts.append(day.zfill(2))
+    return "-".join(parts)
+
+
 def _parse_csv_list(value: str) -> list[str]:
     return [v.strip() for v in value.split(",") if v.strip()]
 
@@ -82,7 +119,9 @@ def artist_from_form(form) -> dict:
         "default_tags": {
             "gender_identity": form.get("gender_identity", "").strip(),
             "sex_assigned_at_birth": form.get("sex_assigned_at_birth", "").strip(),
-            "birth_date": form.get("birth_date", "").strip(),
+            "birth_date": serialize_partial_date(
+                form.get("birth_year", ""), form.get("birth_month", ""), form.get("birth_day", "")
+            ),
             "occupation": _parse_csv_list(form.get("occupation", "")),
             "birth_place": {
                 "city": form.get("birth_place_city", "").strip(),
@@ -126,3 +165,12 @@ def upsert_artist(path: Path, new_entry: dict, original_id: str | None) -> None:
     artists.append(new_entry)
     artists.sort(key=lambda a: a["canonical_name"].lower())
     save_artists(path, artists)
+
+
+def delete_artist(path: Path, artist_id: str) -> bool:
+    artists = load_artists(path)
+    remaining = [a for a in artists if a["id"] != artist_id]
+    if len(remaining) == len(artists):
+        return False
+    save_artists(path, remaining)
+    return True

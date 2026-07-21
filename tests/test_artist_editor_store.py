@@ -4,8 +4,11 @@ from werkzeug.datastructures import MultiDict
 
 from afss.artist_editor.store import (
     artist_from_form,
+    delete_artist,
     load_artists,
+    parse_partial_date,
     save_artists,
+    serialize_partial_date,
     tags_with_defaults,
     upsert_artist,
 )
@@ -21,7 +24,9 @@ def test_artist_from_form_parses_types_correctly():
             "active": "on",
             "gender_identity": "female",
             "sex_assigned_at_birth": "female",
-            "birth_date": "1995-05-20",
+            "birth_year": "1995",
+            "birth_month": "5",
+            "birth_day": "20",
             "occupation": "actress, model",
             "birth_place_city": "Vienna",
             "birth_place_state": "",
@@ -59,6 +64,7 @@ def test_artist_from_form_parses_types_correctly():
     assert entry["notes"] == "Some notes"
 
     tags = entry["default_tags"]
+    assert tags["birth_date"] == "1995-05-20"
     assert tags["occupation"] == ["actress", "model"]
     assert tags["birth_place"] == {"city": "Vienna", "state": "", "country_iso": "aut"}
     assert tags["body_measurements_cm"] == {"bust_cm": "90", "waist_cm": "60", "hips_cm": "88"}
@@ -129,6 +135,74 @@ def test_upsert_artist_id_change_removes_old_id(tmp_path):
 
     artists = load_artists(path)
     assert [a["id"] for a in artists] == ["new_id"]
+
+
+def test_artist_from_form_year_only_birth_date():
+    form = MultiDict({"canonical_name": "Someone", "birth_year": "1998"})
+    entry = artist_from_form(form)
+    assert entry["default_tags"]["birth_date"] == "1998"
+
+
+def test_artist_from_form_no_birth_date_when_all_empty():
+    form = MultiDict({"canonical_name": "Someone"})
+    entry = artist_from_form(form)
+    assert entry["default_tags"]["birth_date"] == ""
+
+
+def test_artist_from_form_day_without_month_is_ignored():
+    """Tag ohne Monat kann nicht sinnvoll serialisiert werden - Monat gewinnt Vorrang, Tag wird verworfen."""
+    form = MultiDict({"canonical_name": "Someone", "birth_year": "1998", "birth_day": "15"})
+    entry = artist_from_form(form)
+    assert entry["default_tags"]["birth_date"] == "1998"
+
+
+def test_serialize_partial_date_variants():
+    assert serialize_partial_date("1998", "3", "15") == "1998-03-15"
+    assert serialize_partial_date("1998", "3", "") == "1998-03"
+    assert serialize_partial_date("1998", "", "") == "1998"
+    assert serialize_partial_date("", "", "") == ""
+
+
+def test_parse_partial_date_variants():
+    assert parse_partial_date("1998-03-15") == {"year": 1998, "month": 3, "day": 15}
+    assert parse_partial_date("1998-03") == {"year": 1998, "month": 3, "day": None}
+    assert parse_partial_date("1998") == {"year": 1998, "month": None, "day": None}
+    assert parse_partial_date("") == {"year": None, "month": None, "day": None}
+    assert parse_partial_date("not a date") == {"year": None, "month": None, "day": None}
+
+
+def test_partial_date_roundtrip():
+    original = "1998-03"
+    parsed = parse_partial_date(original)
+    rebuilt = serialize_partial_date(str(parsed["year"]), str(parsed["month"]), "")
+    assert rebuilt == original
+
+
+def test_delete_artist_removes_entry_and_preserves_others(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [
+            {"id": "a1", "canonical_name": "Alpha", "aliases": [], "default_tags": {}},
+            {"id": "a2", "canonical_name": "Beta", "aliases": [], "default_tags": {}},
+        ],
+    )
+
+    result = delete_artist(path, "a1")
+
+    assert result is True
+    artists = load_artists(path)
+    assert [a["id"] for a in artists] == ["a2"]
+
+
+def test_delete_artist_returns_false_for_unknown_id(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(path, [{"id": "a1", "canonical_name": "Alpha", "aliases": [], "default_tags": {}}])
+
+    result = delete_artist(path, "does_not_exist")
+
+    assert result is False
+    assert len(load_artists(path)) == 1
 
 
 def test_save_artists_is_atomic_write(tmp_path):

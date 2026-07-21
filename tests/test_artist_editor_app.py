@@ -14,7 +14,7 @@ def _seed(config_dir):
                         "id": "artist_alpha",
                         "canonical_name": "Alpha",
                         "aliases": ["alpha1"],
-                        "default_tags": {"gender_identity": "female"},
+                        "default_tags": {"gender_identity": "female", "birth_date": "1998-03"},
                         "real_name": "",
                         "notes": "",
                         "active": True,
@@ -69,6 +69,8 @@ def test_edit_form_prefills_existing_values(tmp_path):
     assert resp.status_code == 200
     assert b"Alpha" in resp.data
     assert b"alpha1" in resp.data
+    assert b'name="birth_year" placeholder="Jahr" min="1900" max="2100" value="1998"' in resp.data
+    assert b'name="birth_month" placeholder="Monat" min="1" max="12" value="3"' in resp.data
 
 
 def test_edit_unknown_id_redirects_with_flash(tmp_path):
@@ -135,3 +137,42 @@ def test_save_without_canonical_name_shows_error(tmp_path):
 
     artists = load_artists(config_dir / "artists.json")
     assert len(artists) == 1  # nichts hinzugefügt
+
+
+def test_save_with_partial_birth_date(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    client.post(
+        "/artists/save",
+        data={"canonical_name": "Only Year Known", "birth_year": "2001"},
+    )
+
+    artists = load_artists(config_dir / "artists.json")
+    entry = next(a for a in artists if a["canonical_name"] == "Only Year Known")
+    assert entry["default_tags"]["birth_date"] == "2001"
+
+
+def test_delete_removes_artist(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.post("/artists/delete/artist_alpha", follow_redirects=True)
+    assert resp.status_code == 200
+    assert "gelöscht".encode() in resp.data
+    assert load_artists(config_dir / "artists.json") == []
+
+
+def test_delete_unknown_id_shows_error(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.post("/artists/delete/does_not_exist", follow_redirects=True)
+    assert "nicht gefunden".encode() in resp.data
+    assert len(load_artists(config_dir / "artists.json")) == 1
