@@ -2,22 +2,33 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
 <title>AFSS Tag — {{ profile_id }}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: #222; }
+  :root {
+    --bg: #ffffff; --fg: #222222; --muted: #666666; --border: #cccccc;
+    --th-bg: #f2f2f2; --hover: #eeeeff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --fg: #eaeaea; --muted: #a0a0a0; --border: #444444;
+      --th-bg: #2a2a2c; --hover: #33333d;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: var(--fg); background: var(--bg); }
   table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #ccc; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
-  th { cursor: pointer; background: #f2f2f2; user-select: none; }
+  th, td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+  th { cursor: pointer; background: var(--th-bg); user-select: none; }
   .row-form { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
   .sub-field { display: none; }
   .sub-field.active { display: block; }
-  input[type=text] { padding: 0.25rem; }
+  input[type=text] { padding: 0.25rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
   .suggestions { position: relative; }
-  .suggestions ul { list-style: none; margin: 0.2rem 0 0; padding: 0; position: absolute; background: white;
-    border: 1px solid #ccc; max-height: 160px; overflow-y: auto; z-index: 10; min-width: 220px; }
+  .suggestions ul { list-style: none; margin: 0.2rem 0 0; padding: 0; position: absolute; background: var(--bg);
+    border: 1px solid var(--border); max-height: 160px; overflow-y: auto; z-index: 10; min-width: 220px; }
   .suggestions li { padding: 0.25rem 0.5rem; cursor: pointer; }
-  .suggestions li:hover { background: #eef; }
-  .sample-path { color: #666; font-size: 0.85em; }
+  .suggestions li:hover { background: var(--hover); }
+  .sample-path { color: var(--muted); font-size: 0.85em; }
 </style>
 </head>
 <body>
@@ -41,7 +52,7 @@
       <td>{{ folder_name }}</td>
       <td class="sample-path">{{ sample_path or "" }}</td>
       <td>
-        <form class="row-form" method="post" action="/assign/{{ id }}">
+        <form class="row-form" method="post" action="{{ url_for('tag.assign', profile_id=profile_id, unresolved_id=id) }}">
           <select name="action" onchange="onActionChange(this)">
             <option value="ignore">Ignorieren</option>
             <option value="new_artist">Artist neu</option>
@@ -66,6 +77,8 @@
 </table>
 
 <script>
+const TAG_SEARCH_URL = "{{ url_for('tag.search', profile_id=profile_id) }}";
+
 function onActionChange(select) {
   const form = select.closest('form');
   const newField = form.querySelector('.new-field');
@@ -90,7 +103,7 @@ document.querySelectorAll('.search-input').forEach(function (input) {
     const query = input.value.trim();
     if (!query) { resultsEl.innerHTML = ''; return; }
     timer = setTimeout(function () {
-      fetch('/search?kind=' + kind + '&q=' + encodeURIComponent(query))
+      fetch(TAG_SEARCH_URL + '?kind=' + kind + '&q=' + encodeURIComponent(query))
         .then(function (r) { return r.json(); })
         .then(function (items) {
           resultsEl.innerHTML = '';

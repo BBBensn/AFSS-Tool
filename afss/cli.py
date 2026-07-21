@@ -89,6 +89,14 @@ def cmd_tag(args: argparse.Namespace) -> None:
         run_interactive_tag(args.profile)
 
 
+def cmd_dashboard(args: argparse.Namespace) -> None:
+    init_schema()
+    from afss.dashboard.app import run_dashboard
+
+    print(f"Dashboard läuft auf http://127.0.0.1:{args.port} (nur lokal erreichbar)")
+    run_dashboard(Path(args.config_dir), port=args.port)
+
+
 def cmd_apply(args: argparse.Namespace) -> None:
     init_schema()
     from afss.apply import apply_profile, delete_verified_sources
@@ -224,6 +232,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_tag.add_argument("--web", action="store_true", help="Lokale Flask-Web-UI statt CLI-Dialog starten")
     p_tag.add_argument("--port", type=int, default=5151, help="Port für --web (Standard: 5151)")
     p_tag.set_defaults(func=cmd_tag)
+
+    p_dashboard = sub.add_parser("dashboard", help="Lokales Web-Dashboard für alle Schritte starten")
+    p_dashboard.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
+    p_dashboard.add_argument("--port", type=int, default=5150, help="Port (Standard: 5150)")
+    p_dashboard.set_defaults(func=cmd_dashboard)
 
     p_apply = sub.add_parser("apply", help="Verifiziert kopieren (nicht verschieben)")
     p_apply.add_argument("--profile", required=True, help="Profile id")

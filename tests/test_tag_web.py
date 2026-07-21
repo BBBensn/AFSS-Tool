@@ -15,13 +15,24 @@ def _seed(db_path):
     conn.close()
 
 
-def test_index_lists_pending_rows(tmp_path):
+def test_root_redirects_to_profile_tag_page(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)
     app = create_app("p1", db_path)
     client = app.test_client()
 
     resp = client.get("/")
+    assert resp.status_code == 302
+    assert resp.headers["Location"] == "/tag/p1/"
+
+
+def test_index_lists_pending_rows(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", db_path)
+    client = app.test_client()
+
+    resp = client.get("/tag/p1/")
     assert resp.status_code == 200
     assert b"Weird Folder" in resp.data
 
@@ -32,7 +43,7 @@ def test_search_returns_matching_artists(tmp_path):
     app = create_app("p1", db_path)
     client = app.test_client()
 
-    resp = client.get("/search?kind=artist&q=Alp")
+    resp = client.get("/tag/p1/search?kind=artist&q=Alp")
     assert resp.status_code == 200
     assert resp.get_json() == [{"id": "a1", "name": "Alpha"}]
 
@@ -50,10 +61,11 @@ def test_assign_new_artist_updates_status_and_redirects(tmp_path):
     conn.close()
 
     resp = client.post(
-        f"/assign/{unresolved_id}",
+        f"/tag/p1/assign/{unresolved_id}",
         data={"action": "new_artist", "canonical_name": "Weird Folder"},
     )
     assert resp.status_code == 302
+    assert resp.headers["Location"] == "/tag/p1/"
 
     conn = get_connection(db_path)
     cur = conn.cursor()
@@ -76,7 +88,7 @@ def test_assign_ignore_sets_status(tmp_path):
     unresolved_id = cur.fetchone()[0]
     conn.close()
 
-    client.post(f"/assign/{unresolved_id}", data={"action": "ignore"})
+    client.post(f"/tag/p1/assign/{unresolved_id}", data={"action": "ignore"})
 
     conn = get_connection(db_path)
     cur = conn.cursor()

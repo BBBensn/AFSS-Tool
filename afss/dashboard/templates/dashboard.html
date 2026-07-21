@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>AFSS Dashboard</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #222222; --muted: #666666; --border: #cccccc;
+    --th-bg: #f2f2f2; --btn-bg: #fafafa; --btn-hover: #eeeeee;
+    --flash-ok-bg: #e6f6e6; --flash-ok-border: #99cc99;
+    --flash-error-bg: #fdecea; --flash-error-border: #ee9999;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --fg: #eaeaea; --muted: #a0a0a0; --border: #444444;
+      --th-bg: #2a2a2c; --btn-bg: #2f2f31; --btn-hover: #3a3a3c;
+      --flash-ok-bg: #123320; --flash-ok-border: #2e7d4f;
+      --flash-error-bg: #3a1f1f; --flash-error-border: #a94442;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: var(--fg); background: var(--bg); }
+  h1 { margin-bottom: 0.2rem; }
+  .config-path { color: var(--muted); font-size: 0.85em; margin-top: 0; }
+  .flash { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.3rem 0; }
+  .flash-ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); }
+  .flash-error { background: var(--flash-error-bg); border: 1px solid var(--flash-error-border); }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { border: 1px solid var(--border); padding: 0.5rem 0.7rem; text-align: left; vertical-align: top; }
+  th { background: var(--th-bg); }
+  .profile-id { font-weight: 600; }
+  .root-path { color: var(--muted); font-size: 0.85em; }
+  .stats { font-size: 0.9em; }
+  .not-scanned { color: var(--muted); font-style: italic; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .actions form { display: inline-flex; gap: 0.3rem; align-items: center; margin: 0; }
+  button, .btn-link { padding: 0.3rem 0.6rem; cursor: pointer; border: 1px solid var(--muted); border-radius: 4px;
+    background: var(--btn-bg); text-decoration: none; color: var(--fg); font-size: 0.9em; }
+  button:hover, .btn-link:hover { background: var(--btn-hover); }
+  .btn-danger { border-color: #c66; color: #d9534f; }
+  input[type=text] { padding: 0.25rem; width: 12rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<h1>AFSS Dashboard</h1>
+<p class="config-path">Config: {{ config_dir }}</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="flash flash-{{ 'error' if category == 'error' else 'ok' }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<table>
+  <thead>
+    <tr>
+      <th>Profil</th>
+      <th>Status</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    {% set p = row.profile %}
+    {% set stats = row.stats %}
+    <tr>
+      <td>
+        <div class="profile-id">{{ p.id }}</div>
+        <div class="root-path">{{ p.root_path }}</div>
+        {% if p.description %}<div class="root-path">{{ p.description }}</div>{% endif %}
+      </td>
+      <td class="stats">
+        {% if stats %}
+          {{ stats.total }} Dateien, {{ stats.resolved }} resolved
+          ({{ "%.0f"|format(stats.resolved / stats.total * 100 if stats.total else 0) }}%)<br>
+          {% for media_type, count in stats.media_type_counts.items() %}
+            {{ media_type }}: {{ count }}{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        {% else %}
+          <span class="not-scanned">noch nicht gescannt</span>
+        {% endif %}
+      </td>
+      <td class="actions">
+        <form method="post" action="{{ url_for('run_action', action='scan', profile_id=p.id) }}">
+          <button type="submit">Scan</button>
+        </form>
+        <form method="post" action="{{ url_for('run_action', action='resolve', profile_id=p.id) }}">
+          <button type="submit">Resolve</button>
+        </form>
+        <a class="btn-link" href="{{ url_for('tag.index', profile_id=p.id) }}">Tag</a>
+        <form method="post" action="{{ url_for('run_action', action='dedupe', profile_id=p.id) }}">
+          <button type="submit">Dedupe</button>
+        </form>
+        <form method="post" action="{{ url_for('run_action', action='dedupe_apply', profile_id=p.id) }}"
+              onsubmit="return confirm('Als pending markierte Duplikate für {{ p.id }} jetzt löschen?');">
+          <button type="submit" class="btn-danger">Dedupe-Apply</button>
+        </form>
+        <form method="post" action="{{ url_for('run_action', action='plan', profile_id=p.id) }}">
+          <button type="submit">Plan</button>
+        </form>
+        <form method="post" action="{{ url_for('run_action', action='apply', profile_id=p.id) }}">
+          <input type="text" name="target" placeholder="Zielverzeichnis">
+          <button type="submit">Apply</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</body>
+</html>

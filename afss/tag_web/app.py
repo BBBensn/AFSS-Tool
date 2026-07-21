@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Flask, jsonify, redirect, render_template, request, url_for
 
 from afss.tagging import (
     assign_to_existing_entity,
@@ -18,23 +18,25 @@ _KIND_BY_ACTION = {
 }
 
 
-def create_app(profile_id: str, db_path: Path | None = None) -> Flask:
-    app = Flask(__name__)
+def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
+    """Blueprint mit /<profile_id>/-Routen, damit ein Flask-Prozess mehrere Profile bedienen kann
+    (Standalone `afss tag --web` UND das Dashboard nutzen denselben Blueprint)."""
+    bp = Blueprint("tag", __name__, template_folder="templates")
 
-    @app.route("/")
-    def index():
+    @bp.route("/<profile_id>/")
+    def index(profile_id: str):
         rows = get_pending_unresolved(profile_id, db_path)
         return render_template("index.html", profile_id=profile_id, rows=rows)
 
-    @app.route("/search")
-    def search():
+    @bp.route("/<profile_id>/search")
+    def search(profile_id: str):
         kind = request.args.get("kind", "artist")
         query = request.args.get("q", "")
         matches = search_entities(kind, query, db_path)
         return jsonify([{"id": eid, "name": name} for eid, name in matches])
 
-    @app.route("/assign/<int:unresolved_id>", methods=["POST"])
-    def assign(unresolved_id: int):
+    @bp.route("/<profile_id>/assign/<int:unresolved_id>", methods=["POST"])
+    def assign(profile_id: str, unresolved_id: int):
         action = request.form.get("action", "")
 
         if action == "ignore":
@@ -48,7 +50,18 @@ def create_app(profile_id: str, db_path: Path | None = None) -> Flask:
             if entity_id:
                 assign_to_existing_entity(unresolved_id, _KIND_BY_ACTION[action], entity_id, db_path)
 
-        return redirect(url_for("index"))
+        return redirect(url_for("tag.index", profile_id=profile_id))
+
+    return bp
+
+
+def create_app(profile_id: str, db_path: Path | None = None) -> Flask:
+    app = Flask(__name__)
+    app.register_blueprint(build_tag_blueprint(db_path), url_prefix="/tag")
+
+    @app.route("/")
+    def _root():
+        return redirect(url_for("tag.index", profile_id=profile_id))
 
     return app
 

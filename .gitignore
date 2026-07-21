@@ -4,9 +4,10 @@ __pycache__/
 *.egg-info/
 .DS_Store
 
-# lokale/sensible Daten, nie committen
+# lokale/sensible Daten, nie committen (überall im Repo, nicht nur config/)
 afss.db
-config/artists.json
-config/providers.json
-config/mapping.json
+**/artists.json
+**/providers.json
+**/mapping.json
 *.mapping.json
+plan_*.csv
