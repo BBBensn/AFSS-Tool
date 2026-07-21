@@ -99,6 +99,47 @@ def test_resolve_falls_back_to_level2_for_category_first_drives(tmp_path):
     conn.close()
 
 
+def test_resolve_applies_manual_collection_override(tmp_path):
+    """Ordnername kombiniert Artist+Collection ('Artist Shoot2025') - Vorgabe beim Taggen gewinnt."""
+    root = tmp_path / "fake_root"
+    (root / "Artist Shoot2025").mkdir(parents=True)
+    (root / "Artist Shoot2025" / "clip.mp4").write_bytes(b"x")
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "legacy_profiles.yml").write_text(
+        yaml.safe_dump({"profiles": [{"id": "combo_profile", "root_path": str(root), "enabled": True}]}),
+        encoding="utf-8",
+    )
+    (config_dir / "artists.json").write_text(json.dumps({"artists": []}), encoding="utf-8")
+    (config_dir / "providers.json").write_text(json.dumps({"providers": []}), encoding="utf-8")
+
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    scan_profile("combo_profile", config_dir, db_path)
+    resolve_profile("combo_profile", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM unresolved_folders WHERE folder_name = 'Artist Shoot2025'")
+    unresolved_id = cur.fetchone()[0]
+    conn.close()
+
+    from afss.tagging import assign_to_new_entity
+
+    entity_id, _conflict = assign_to_new_entity(
+        unresolved_id, "artist", "Real Artist Name", db_path, collection_override="Shoot2025"
+    )
+
+    resolve_profile("combo_profile", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id, collection_name FROM media_items WHERE filename = 'clip.mp4'")
+    assert cur.fetchone() == (entity_id, "Shoot2025")
+    conn.close()
+
+
 def test_resolve_is_idempotent_and_preserves_manual_status(tmp_path):
     _setup(tmp_path)
     db_path = tmp_path / "test.db"

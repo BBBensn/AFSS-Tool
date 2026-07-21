@@ -2,6 +2,7 @@ from pathlib import Path
 
 from afss.db import get_connection
 from afss.normalize import normalize_name
+from afss.tagging import get_collection_overrides
 
 
 def resolve_profile(profile_id: str, db_path: Path | None = None) -> dict:
@@ -18,6 +19,7 @@ def resolve_profile(profile_id: str, db_path: Path | None = None) -> dict:
     artist_by_alias = dict(cur.fetchall())
     cur.execute("SELECT alias, provider_id FROM provider_aliases")
     provider_by_alias = dict(cur.fetchall())
+    collection_overrides = get_collection_overrides(profile_id, db_path)
 
     resolved_count = 0
     unresolved = {}  # (folder_name, level) -> {"count": int, "sample_path": str}
@@ -49,6 +51,16 @@ def resolve_profile(profile_id: str, db_path: Path | None = None) -> dict:
             provider_id = None
 
         collection_name = folder_level2 if (folder_level2 and not level2_is_artist and not level2_is_provider) else None
+
+        # Manuell erfasste Collection (z.B. Ordnername "Artist Shoot2025" wurde als Artist
+        # getaggt, mit "Shoot2025" separat als Collection hinterlegt) überschreibt den Default.
+        override = None
+        if folder_level1:
+            override = collection_overrides.get((folder_level1, 1))
+        if override is None and folder_level2:
+            override = collection_overrides.get((folder_level2, 2))
+        if override:
+            collection_name = override
 
         cur.execute(
             "UPDATE media_items SET artist_id = ?, provider_id = ?, collection_name = ? WHERE id = ?",

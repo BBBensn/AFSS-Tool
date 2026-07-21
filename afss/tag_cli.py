@@ -56,7 +56,8 @@ def run_interactive_tag(profile_id: str, db_path: Path | None = None) -> None:
         if choice in ("a", "p"):
             kind = "artist" if choice == "a" else "provider"
             name = input(f"Canonical name für {kind} [{folder_name}]: ").strip() or folder_name
-            _, conflict = assign_to_new_entity(unresolved_id, kind, name, db_path)
+            collection_override = input("Collection für diesen Ordner (optional, Enter zum Überspringen): ").strip()
+            _, conflict = assign_to_new_entity(unresolved_id, kind, name, db_path, collection_override or None)
             _print_conflict(conflict)
             continue
 
@@ -74,7 +75,8 @@ def run_interactive_tag(profile_id: str, db_path: Path | None = None) -> None:
                 print("Ungültige Auswahl.")
                 continue
             entity_id = matches[int(idx)][0]
-            conflict = assign_to_existing_entity(unresolved_id, kind, entity_id, db_path)
+            collection_override = input("Collection für diesen Ordner (optional, Enter zum Überspringen): ").strip()
+            conflict = assign_to_existing_entity(unresolved_id, kind, entity_id, db_path, collection_override or None)
             _print_conflict(conflict)
             continue
 

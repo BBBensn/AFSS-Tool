@@ -2,7 +2,7 @@ from afss.apply import apply_profile, delete_verified_sources
 from afss.db import get_connection, init_schema
 
 
-def _seed(db_path, source_path, planned_filename="Artist One - clip.mp4"):
+def _seed(db_path, source_path, planned_filename="Artist One - clip.mp4", collection_name=None):
     init_schema(db_path)
     conn = get_connection(db_path)
     cur = conn.cursor()
@@ -12,15 +12,30 @@ def _seed(db_path, source_path, planned_filename="Artist One - clip.mp4"):
         """
         INSERT INTO media_items(
             profile_id, path, rel_path, filename, ext, media_type,
-            artist_id, planned_filename, needs_review, verified, scanned_at
-        ) VALUES ('p1', ?, 'clip.mp4', 'clip.mp4', '.mp4', 'video', 'artist_1', ?, 0, 0, '2020-01-01')
+            artist_id, collection_name, planned_filename, needs_review, verified, scanned_at
+        ) VALUES ('p1', ?, 'clip.mp4', 'clip.mp4', '.mp4', 'video', 'artist_1', ?, ?, 0, 0, '2020-01-01')
         """,
-        (str(source_path), planned_filename),
+        (str(source_path), collection_name, planned_filename),
     )
     item_id = cur.lastrowid
     conn.commit()
     conn.close()
     return item_id
+
+
+def test_apply_nests_collection_as_subfolder(tmp_path):
+    db_path = tmp_path / "test.db"
+    source = tmp_path / "source" / "clip.mp4"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"video content")
+    _seed(db_path, source, collection_name="Shoot2025")
+
+    target_dir = tmp_path / "target"
+    result = apply_profile("p1", target_dir, db_path)
+
+    assert result["copied"] == 1
+    dest = target_dir / "Artist One" / "Shoot2025" / "Artist One - clip.mp4"
+    assert dest.exists()
 
 
 def test_apply_copies_and_verifies(tmp_path):

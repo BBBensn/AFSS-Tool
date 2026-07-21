@@ -76,6 +76,30 @@ def test_assign_new_artist_updates_status_and_redirects(tmp_path):
     assert resolved_to_id is not None
 
 
+def test_assign_new_artist_with_collection_override(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", db_path)
+    client = app.test_client()
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM unresolved_folders WHERE folder_name = 'Weird Folder'")
+    unresolved_id = cur.fetchone()[0]
+    conn.close()
+
+    client.post(
+        f"/tag/p1/assign/{unresolved_id}",
+        data={"action": "new_artist", "canonical_name": "Real Name", "collection_override": "Shoot2025"},
+    )
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT collection_override FROM unresolved_folders WHERE id = ?", (unresolved_id,))
+    assert cur.fetchone()[0] == "Shoot2025"
+    conn.close()
+
+
 def test_assign_ignore_sets_status(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

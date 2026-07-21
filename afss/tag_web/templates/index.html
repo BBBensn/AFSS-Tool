@@ -92,6 +92,9 @@
             <input type="hidden" name="entity_id">
             <ul class="results"></ul>
           </span>
+          <span class="sub-field collection-field">
+            <input type="text" name="collection_override" placeholder="Collection (optional)">
+          </span>
           <button type="submit">OK</button>
         </form>
       </td>
@@ -107,13 +110,15 @@ function onActionChange(select) {
   const form = select.closest('form');
   const newField = form.querySelector('.new-field');
   const existingField = form.querySelector('.existing-field');
+  const collectionField = form.querySelector('.collection-field');
   newField.classList.remove('active');
   existingField.classList.remove('active');
-  if (select.value === 'new_artist' || select.value === 'new_provider') {
-    newField.classList.add('active');
-  } else if (select.value === 'existing_artist' || select.value === 'existing_provider') {
-    existingField.classList.add('active');
-  }
+  collectionField.classList.remove('active');
+  const isNew = select.value === 'new_artist' || select.value === 'new_provider';
+  const isExisting = select.value === 'existing_artist' || select.value === 'existing_provider';
+  if (isNew) { newField.classList.add('active'); }
+  if (isExisting) { existingField.classList.add('active'); }
+  if (isNew || isExisting) { collectionField.classList.add('active'); }
 }
 
 document.querySelectorAll('.search-input').forEach(function (input) {

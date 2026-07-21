@@ -46,6 +46,8 @@ def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
     def assign(profile_id: str, unresolved_id: int):
         action = request.form.get("action", "")
 
+        collection_override = request.form.get("collection_override", "").strip() or None
+
         if action == "ignore":
             ignore_folder(unresolved_id, db_path)
         elif action == "category":
@@ -55,11 +57,11 @@ def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
         elif action in ("new_artist", "new_provider"):
             name = request.form.get("canonical_name", "").strip()
             if name:
-                assign_to_new_entity(unresolved_id, _KIND_BY_ACTION[action], name, db_path)
+                assign_to_new_entity(unresolved_id, _KIND_BY_ACTION[action], name, db_path, collection_override)
         elif action in ("existing_artist", "existing_provider"):
             entity_id = request.form.get("entity_id", "").strip()
             if entity_id:
-                assign_to_existing_entity(unresolved_id, _KIND_BY_ACTION[action], entity_id, db_path)
+                assign_to_existing_entity(unresolved_id, _KIND_BY_ACTION[action], entity_id, db_path, collection_override)
 
         return redirect(url_for("tag.index", profile_id=profile_id))
 

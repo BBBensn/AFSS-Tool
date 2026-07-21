@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS unresolved_folders(
     sample_path TEXT,
     status TEXT DEFAULT 'pending',
     resolved_to_id TEXT,
+    collection_override TEXT,
     UNIQUE(profile_id, folder_name, folder_level)
 );
 
@@ -113,10 +114,21 @@ def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
     return conn
 
 
+def _migrate_schema(conn: sqlite3.Connection) -> None:
+    """Fügt Spalten hinzu, die nach dem ersten Release ergänzt wurden - CREATE TABLE IF NOT
+    EXISTS rührt bestehende Tabellen nicht an, daher hier ein leichtgewichtiger ALTER TABLE."""
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(unresolved_folders)")
+    columns = {row[1] for row in cur.fetchall()}
+    if "collection_override" not in columns:
+        cur.execute("ALTER TABLE unresolved_folders ADD COLUMN collection_override TEXT")
+
+
 def init_schema(db_path: Path | None = None) -> None:
     conn = get_connection(db_path)
     try:
         conn.executescript(SCHEMA)
+        _migrate_schema(conn)
         conn.commit()
     finally:
         conn.close()

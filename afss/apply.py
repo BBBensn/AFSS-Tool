@@ -6,6 +6,10 @@ from pathlib import Path
 from afss.db import get_connection
 
 
+def _sanitize_folder_name(name: str) -> str:
+    return name.replace("/", "-").replace("\x00", "").strip()
+
+
 def _sha256(path: Path, chunk_size: int = 1024 * 1024) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -26,7 +30,7 @@ def apply_profile(profile_id: str, target_dir: Path, db_path: Path | None = None
 
     cur.execute(
         """
-        SELECT m.id, m.path, m.planned_filename, a.canonical_name
+        SELECT m.id, m.path, m.planned_filename, a.canonical_name, m.collection_name
         FROM media_items m
         LEFT JOIN artists a ON a.id = m.artist_id
         WHERE m.profile_id = ? AND m.needs_review = 0 AND m.planned_filename IS NOT NULL AND m.verified = 0
@@ -41,13 +45,15 @@ def apply_profile(profile_id: str, target_dir: Path, db_path: Path | None = None
     skipped_existing = 0
     failed = []
 
-    for item_id, source_path, planned_filename, artist_name in rows:
+    for item_id, source_path, planned_filename, artist_name, collection_name in rows:
         source = Path(source_path)
         if not source.exists():
             failed.append({"item_id": item_id, "reason": f"Quelle fehlt: {source}"})
             continue
 
         dest_dir = target_dir / (artist_name or "_unresolved")
+        if collection_name:
+            dest_dir = dest_dir / _sanitize_folder_name(collection_name)
         dest_path = dest_dir / planned_filename
 
         if dest_path.exists():

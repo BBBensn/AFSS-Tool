@@ -73,7 +73,11 @@ def search_entities(kind: str, query: str, db_path: Path | None = None) -> list[
 
 
 def assign_to_new_entity(
-    unresolved_id: int, kind: str, canonical_name: str, db_path: Path | None = None
+    unresolved_id: int,
+    kind: str,
+    canonical_name: str,
+    db_path: Path | None = None,
+    collection_override: str | None = None,
 ) -> tuple[str, dict | None]:
     table, alias_table, fk_col, status = _kind_tables(kind)
     conn = get_connection(db_path)
@@ -95,8 +99,8 @@ def assign_to_new_entity(
     conflict = _add_alias_safe(cur, alias_table, fk_col, entity_id, folder_name)
 
     cur.execute(
-        "UPDATE unresolved_folders SET status = ?, resolved_to_id = ? WHERE id = ?",
-        (status, entity_id, unresolved_id),
+        "UPDATE unresolved_folders SET status = ?, resolved_to_id = ?, collection_override = ? WHERE id = ?",
+        (status, entity_id, collection_override or None, unresolved_id),
     )
     conn.commit()
     conn.close()
@@ -104,7 +108,11 @@ def assign_to_new_entity(
 
 
 def assign_to_existing_entity(
-    unresolved_id: int, kind: str, entity_id: str, db_path: Path | None = None
+    unresolved_id: int,
+    kind: str,
+    entity_id: str,
+    db_path: Path | None = None,
+    collection_override: str | None = None,
 ) -> dict | None:
     _, alias_table, fk_col, status = _kind_tables(kind)
     conn = get_connection(db_path)
@@ -120,8 +128,8 @@ def assign_to_existing_entity(
     conflict = _add_alias_safe(cur, alias_table, fk_col, entity_id, folder_name)
 
     cur.execute(
-        "UPDATE unresolved_folders SET status = ?, resolved_to_id = ? WHERE id = ?",
-        (status, entity_id, unresolved_id),
+        "UPDATE unresolved_folders SET status = ?, resolved_to_id = ?, collection_override = ? WHERE id = ?",
+        (status, entity_id, collection_override or None, unresolved_id),
     )
     conn.commit()
     conn.close()
@@ -184,3 +192,20 @@ def get_trash_folder_names(db_path: Path | None = None) -> set[str]:
     names = {r[0] for r in cur.fetchall()}
     conn.close()
     return names
+
+
+def get_collection_overrides(profile_id: str, db_path: Path | None = None) -> dict[tuple[str, int], str]:
+    """Liefert {(folder_name, folder_level): collection_name}, manuell beim Taggen erfasst -
+    z.B. wenn ein Ordnername Artist und Collection kombiniert ('Artist Shoot2025')."""
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT folder_name, folder_level, collection_override FROM unresolved_folders
+        WHERE profile_id = ? AND collection_override IS NOT NULL AND collection_override != ''
+        """,
+        (profile_id,),
+    )
+    overrides = {(name, level): override for name, level, override in cur.fetchall()}
+    conn.close()
+    return overrides
