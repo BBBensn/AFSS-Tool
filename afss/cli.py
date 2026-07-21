@@ -47,6 +47,112 @@ def cmd_migrate_legacy_json(args: argparse.Namespace) -> None:
                 )
 
 
+def cmd_anonymize(args: argparse.Namespace) -> None:
+    from afss.anonymize import clean_file, declean_file
+
+    input_path = Path(args.file)
+    mapping_path = Path(args.mapping)
+    if not input_path.exists():
+        print(f"[ERROR] Datei nicht gefunden: {input_path}")
+        return
+
+    if args.mode == "clean":
+        extra_whitelist = [p.strip() for p in args.whitelist.split(",")] if args.whitelist else None
+        out_path = clean_file(input_path, mapping_path, extra_whitelist)
+        print(f"[OK] Clean-Datei: {out_path}")
+    else:
+        out_path = declean_file(input_path, mapping_path)
+        print(f"[OK] Restored-Datei: {out_path}")
+
+
+def cmd_migrate_mapping(args: argparse.Namespace) -> None:
+    from afss.anonymize import migrate_legacy_mappings
+
+    result = migrate_legacy_mappings(Path(args.json_cleaner), Path(args.omni_cleaner), Path(args.output))
+    print(f"{result['imported']} Einträge in {args.output} übernommen.")
+    if result["conflicts"]:
+        print(f"{len(result['conflicts'])} Konflikte (NICHT übernommen):")
+        for c in result["conflicts"]:
+            print(f"  '{c['original']}' -> behalten: {c['kept']}, verworfen ({c['source']}): {c['discarded']}")
+
+
+def cmd_tag(args: argparse.Namespace) -> None:
+    init_schema()
+    if args.web:
+        from afss.tag_web.app import run_web
+
+        print(f"Web-UI läuft auf http://127.0.0.1:{args.port} (nur lokal erreichbar)")
+        run_web(args.profile, port=args.port)
+    else:
+        from afss.tag_cli import run_interactive_tag
+
+        run_interactive_tag(args.profile)
+
+
+def cmd_apply(args: argparse.Namespace) -> None:
+    init_schema()
+    from afss.apply import apply_profile, delete_verified_sources
+
+    result = apply_profile(args.profile, Path(args.target))
+    print(
+        f"{result['copied']} kopiert, {result['verified']} verifiziert, "
+        f"{result['skipped_existing']} bereits vorhanden, {len(result['failed'])} fehlgeschlagen."
+    )
+    for f in result["failed"]:
+        print(f"  [FEHLER] item {f['item_id']}: {f['reason']}")
+
+    if args.delete_source:
+        if not args.yes_i_am_sure:
+            answer = input("Wirklich alle verifizierten Quelldateien löschen? (j/n) ").strip().lower()
+            if answer != "j":
+                print("Abgebrochen (Quelldateien bleiben erhalten).")
+                return
+        del_result = delete_verified_sources(args.profile)
+        print(
+            f"{del_result['deleted']} Quelldateien gelöscht, "
+            f"{del_result['skipped_missing_target']} übersprungen (Ziel fehlt), "
+            f"{del_result['missing_source']} Quelle bereits weg."
+        )
+
+
+def cmd_plan(args: argparse.Namespace) -> None:
+    init_schema()
+    from afss.naming import plan_profile, write_plan_report
+
+    result = plan_profile(args.profile, Path(args.config_dir))
+    print(
+        f"{len(result['ready'])} von {result['total']} Items geplant (ready), "
+        f"{len(result['needs_review'])} needs_review."
+    )
+
+    output_path = Path(args.output) if args.output else Path(f"plan_{args.profile}.csv")
+    write_plan_report(result, output_path)
+    print(f"Report geschrieben: {output_path}")
+
+
+def cmd_dedupe(args: argparse.Namespace) -> None:
+    init_schema()
+    from afss.dedupe import apply_dedupe, dedupe_profile
+
+    if args.apply:
+        if not args.yes_i_am_sure:
+            answer = input(
+                f"Wirklich alle 'pending' Duplikate für Profil '{args.profile}' löschen? (j/n) "
+            ).strip().lower()
+            if answer != "j":
+                print("Abgebrochen.")
+                return
+        result = apply_dedupe(args.profile)
+        print(f"{result['deleted']} Dateien gelöscht, {result['missing']} nicht gefunden (übersprungen).")
+        return
+
+    result = dedupe_profile(args.profile)
+    print(
+        f"{result['hashed_count']} Dateien gehasht, {result['groups']} Dedupe-Gruppen, "
+        f"{result['duplicate_files']} Duplikate (action=pending) markiert."
+    )
+
+
 def cmd_report(args: argparse.Namespace) -> None:
     init_schema()
     if args.missing:
@@ -97,6 +203,48 @@ def build_parser() -> argparse.ArgumentParser:
     p_migrate = sub.add_parser("migrate-legacy-json", help="artists.json/providers.json einmalig importieren")
     p_migrate.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
     p_migrate.set_defaults(func=cmd_migrate_legacy_json)
+
+    p_anon = sub.add_parser("anonymize", help="Text/JSON-Dateien anonymisieren oder wiederherstellen")
+    p_anon.add_argument("mode", choices=["clean", "declean"])
+    p_anon.add_argument("file")
+    p_anon.add_argument("--mapping", default="config/mapping.json", help="Pfad zur mapping.json")
+    p_anon.add_argument("--whitelist", default=None, help="Kommaseparierte Phrasen, die nie ersetzt werden (nur clean)")
+    p_anon.set_defaults(func=cmd_anonymize)
+
+    p_migrate_map = sub.add_parser(
+        "migrate-mapping", help="Alte mapping.json aus json_cleaner + omni_cleaner zusammenführen"
+    )
+    p_migrate_map.add_argument("--json-cleaner", default="tools/mapping.json", help="Pfad zur json_cleaner mapping.json")
+    p_migrate_map.add_argument("--omni-cleaner", default="tools/omni_mapping.json", help="Pfad zur omni_cleaner mapping.json")
+    p_migrate_map.add_argument("--output", default="config/mapping.json", help="Zielpfad für konsolidiertes Mapping")
+    p_migrate_map.set_defaults(func=cmd_migrate_mapping)
+
+    p_tag = sub.add_parser("tag", help="Unresolved Ordner Artist/Provider zuweisen")
+    p_tag.add_argument("--profile", required=True, help="Profile id")
+    p_tag.add_argument("--web", action="store_true", help="Lokale Flask-Web-UI statt CLI-Dialog starten")
+    p_tag.add_argument("--port", type=int, default=5151, help="Port für --web (Standard: 5151)")
+    p_tag.set_defaults(func=cmd_tag)
+
+    p_apply = sub.add_parser("apply", help="Verifiziert kopieren (nicht verschieben)")
+    p_apply.add_argument("--profile", required=True, help="Profile id")
+    p_apply.add_argument("--target", required=True, help="Zielverzeichnis (z.B. Jellyfin-Library)")
+    p_apply.add_argument("--delete-source", action="store_true", help="Nach Verifikation Quelldateien löschen")
+    p_apply.add_argument(
+        "--yes-i-am-sure", action="store_true", help="Bestätigung für --delete-source ohne Rückfrage"
+    )
+    p_apply.set_defaults(func=cmd_apply)
+
+    p_plan = sub.add_parser("plan", help="Zieldateinamen nach naming_template.yml berechnen")
+    p_plan.add_argument("--profile", required=True, help="Profile id")
+    p_plan.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
+    p_plan.add_argument("--output", default=None, help="Pfad für CSV-Report (Standard: plan_<profile>.csv)")
+    p_plan.set_defaults(func=cmd_plan)
+
+    p_dedupe = sub.add_parser("dedupe", help="Duplikate per Datei-Hash finden (löscht nichts automatisch)")
+    p_dedupe.add_argument("--profile", required=True, help="Profile id oder 'all'")
+    p_dedupe.add_argument("--apply", action="store_true", help="Als 'pending' markierte Duplikate jetzt löschen")
+    p_dedupe.add_argument("--yes-i-am-sure", action="store_true", help="Bestätigung für --apply ohne Rückfrage")
+    p_dedupe.set_defaults(func=cmd_dedupe)
 
     p_report = sub.add_parser("report", help="Statusübersichten")
     p_report.add_argument("--profile", default=None, help="Auf ein Profil einschränken")

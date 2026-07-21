@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>AFSS Tag — {{ profile_id }}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: #222; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+  th { cursor: pointer; background: #f2f2f2; user-select: none; }
+  .row-form { display: flex; gap: 0.5rem; align-items: flex-start; flex-wrap: wrap; }
+  .sub-field { display: none; }
+  .sub-field.active { display: block; }
+  input[type=text] { padding: 0.25rem; }
+  .suggestions { position: relative; }
+  .suggestions ul { list-style: none; margin: 0.2rem 0 0; padding: 0; position: absolute; background: white;
+    border: 1px solid #ccc; max-height: 160px; overflow-y: auto; z-index: 10; min-width: 220px; }
+  .suggestions li { padding: 0.25rem 0.5rem; cursor: pointer; }
+  .suggestions li:hover { background: #eef; }
+  .sample-path { color: #666; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<h1>AFSS Tag — Profil {{ profile_id }}</h1>
+<p>{{ rows|length }} offene Ordner (Standard-Sortierung: Häufigkeit absteigend — Spaltenköpfe klickbar).</p>
+<table id="tag-table">
+  <thead>
+    <tr>
+      <th data-key="occurrence_count">Häufigkeit</th>
+      <th data-key="folder_level">Level</th>
+      <th data-key="folder_name">Ordnername</th>
+      <th>Sample-Pfad</th>
+      <th>Zuweisen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for id, folder_name, folder_level, occurrence_count, sample_path in rows %}
+    <tr>
+      <td>{{ occurrence_count }}</td>
+      <td>{{ folder_level }}</td>
+      <td>{{ folder_name }}</td>
+      <td class="sample-path">{{ sample_path or "" }}</td>
+      <td>
+        <form class="row-form" method="post" action="/assign/{{ id }}">
+          <select name="action" onchange="onActionChange(this)">
+            <option value="ignore">Ignorieren</option>
+            <option value="new_artist">Artist neu</option>
+            <option value="existing_artist">Artist bestehend (Suche)</option>
+            <option value="new_provider">Provider neu</option>
+            <option value="existing_provider">Provider bestehend (Suche)</option>
+          </select>
+          <span class="sub-field new-field">
+            <input type="text" name="canonical_name" placeholder="Canonical name" value="{{ folder_name }}">
+          </span>
+          <span class="sub-field existing-field suggestions">
+            <input type="text" class="search-input" placeholder="Suchen...">
+            <input type="hidden" name="entity_id">
+            <ul class="results"></ul>
+          </span>
+          <button type="submit">OK</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+function onActionChange(select) {
+  const form = select.closest('form');
+  const newField = form.querySelector('.new-field');
+  const existingField = form.querySelector('.existing-field');
+  newField.classList.remove('active');
+  existingField.classList.remove('active');
+  if (select.value === 'new_artist' || select.value === 'new_provider') {
+    newField.classList.add('active');
+  } else if (select.value === 'existing_artist' || select.value === 'existing_provider') {
+    existingField.classList.add('active');
+  }
+}
+
+document.querySelectorAll('.search-input').forEach(function (input) {
+  let timer = null;
+  input.addEventListener('input', function () {
+    clearTimeout(timer);
+    const form = input.closest('form');
+    const select = form.querySelector('select');
+    const kind = select.value === 'existing_provider' ? 'provider' : 'artist';
+    const resultsEl = form.querySelector('.results');
+    const query = input.value.trim();
+    if (!query) { resultsEl.innerHTML = ''; return; }
+    timer = setTimeout(function () {
+      fetch('/search?kind=' + kind + '&q=' + encodeURIComponent(query))
+        .then(function (r) { return r.json(); })
+        .then(function (items) {
+          resultsEl.innerHTML = '';
+          items.forEach(function (item) {
+            const li = document.createElement('li');
+            li.textContent = item.name + ' (' + item.id + ')';
+            li.addEventListener('click', function () {
+              input.value = item.name;
+              form.querySelector('input[name=entity_id]').value = item.id;
+              resultsEl.innerHTML = '';
+            });
+            resultsEl.appendChild(li);
+          });
+        });
+    }, 200);
+  });
+});
+
+document.querySelectorAll('#tag-table th[data-key]').forEach(function (th) {
+  th.addEventListener('click', function () {
+    const table = document.getElementById('tag-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const colIndex = Array.from(th.parentNode.children).indexOf(th);
+    const asc = th.dataset.asc !== 'true';
+    th.dataset.asc = asc;
+    rows.sort(function (a, b) {
+      const av = a.children[colIndex].textContent.trim();
+      const bv = b.children[colIndex].textContent.trim();
+      const an = parseFloat(av), bn = parseFloat(bv);
+      let cmp;
+      if (!isNaN(an) && !isNaN(bn)) { cmp = an - bn; } else { cmp = av.localeCompare(bv); }
+      return asc ? cmp : -cmp;
+    });
+    rows.forEach(function (row) { tbody.appendChild(row); });
+  });
+});
+</script>
+</body>
+</html>

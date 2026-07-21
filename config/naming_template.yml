@@ -1,0 +1,6 @@
+video:
+  # verfügbare Platzhalter: {artist} {provider} {studio} {date} {year} {title}
+  # eckige Klammern = optional, wird bei fehlendem Wert komplett weggelassen (inkl. Trenner)
+  pattern: "{artist} - [{provider} - ][{date} - ]{title}"
+photo:
+  pattern: "{artist} - [{date} - ]{title}"
