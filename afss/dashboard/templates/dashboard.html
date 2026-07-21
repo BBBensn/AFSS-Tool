@@ -44,6 +44,7 @@
 <body>
 <h1>AFSS Dashboard</h1>
 <p class="config-path">Config: {{ config_dir }}</p>
+<p><a class="btn-link" href="{{ url_for('artist_editor.index') }}">Artists verwalten (artists.json)</a></p>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for category, message in messages %}

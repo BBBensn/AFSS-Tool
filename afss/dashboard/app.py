@@ -3,6 +3,7 @@ from pathlib import Path
 from flask import Flask, flash, redirect, render_template, request, url_for
 
 from afss.apply import apply_profile
+from afss.artist_editor.app import build_artist_editor_blueprint
 from afss.config import load_profiles
 from afss.dedupe import apply_dedupe, dedupe_profile
 from afss.naming import plan_profile, write_plan_report
@@ -17,6 +18,7 @@ def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
     app = Flask(__name__)
     app.secret_key = "afss-local-dashboard"  # nur 127.0.0.1, kein Security-relevanter Wert
     app.register_blueprint(build_tag_blueprint(db_path), url_prefix="/tag")
+    app.register_blueprint(build_artist_editor_blueprint(config_dir), url_prefix="/artists")
 
     @app.route("/")
     def index():

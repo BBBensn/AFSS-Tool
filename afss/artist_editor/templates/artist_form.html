@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>AFSS Artists — {{ "Bearbeiten" if artist else "Neu" }}</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #222222; --muted: #666666; --border: #cccccc;
+    --btn-bg: #fafafa; --btn-hover: #eeeeee; --field-bg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --fg: #eaeaea; --muted: #a0a0a0; --border: #444444;
+      --btn-bg: #2f2f31; --btn-hover: #3a3a3c; --field-bg: #2a2a2c;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: var(--fg); background: var(--bg); max-width: 900px; }
+  h1 { margin-bottom: 1rem; }
+  fieldset { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1.2rem; padding: 1rem 1.2rem; }
+  legend { padding: 0 0.4rem; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1.2rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.8rem 1.2rem; }
+  .field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .field.full { grid-column: 1 / -1; }
+  label { font-size: 0.85em; color: var(--muted); }
+  input[type=text], input[type=number], input[type=date], textarea {
+    padding: 0.4rem; background: var(--field-bg); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 4px; font-size: 1em; font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 3rem; }
+  .checkbox-field { flex-direction: row; align-items: center; gap: 0.5rem; }
+  .checkbox-field label { font-size: 1em; color: var(--fg); }
+  .actions { display: flex; gap: 0.6rem; margin-top: 1rem; }
+  button, a.btn { padding: 0.5rem 1rem; border: 1px solid var(--muted); border-radius: 4px;
+    background: var(--btn-bg); color: var(--fg); text-decoration: none; font-size: 1em; cursor: pointer; }
+  button:hover, a.btn:hover { background: var(--btn-hover); }
+  button[type=submit] { font-weight: 600; }
+  .flash { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.6rem 0; }
+  .flash-error { background: #3a1f1f; border: 1px solid #a94442; }
+</style>
+</head>
+<body>
+<h1>{{ "Artist bearbeiten: " + artist.canonical_name if artist else "Neuer Artist" }}</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="flash flash-{{ 'error' if category == 'error' else 'ok' }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<form method="post" action="{{ url_for('artist_editor.save') }}">
+  <input type="hidden" name="original_id" value="{{ original_id }}">
+
+  <fieldset>
+    <legend>Identität</legend>
+    <div class="grid">
+      <div class="field">
+        <label for="canonical_name">Canonical Name</label>
+        <input type="text" id="canonical_name" name="canonical_name" autofocus
+               value="{{ artist.canonical_name if artist else '' }}" required>
+      </div>
+      <div class="field">
+        <label for="id">ID</label>
+        <input type="text" id="id" name="id" value="{{ artist.id if artist else '' }}">
+      </div>
+      <div class="field full">
+        <label for="aliases">Aliases (kommasepariert)</label>
+        <input type="text" id="aliases" name="aliases" value="{{ (artist.aliases or [])|join(', ') if artist else '' }}">
+      </div>
+      <div class="field">
+        <label for="real_name">Real Name</label>
+        <input type="text" id="real_name" name="real_name" value="{{ artist.real_name if artist else '' }}">
+      </div>
+      <div class="field checkbox-field">
+        <input type="checkbox" id="active" name="active" {{ "checked" if (artist is none) or artist.active else "" }}>
+        <label for="active">Aktiv (wird für Matching verwendet)</label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Demografie</legend>
+    <div class="grid-3">
+      <div class="field">
+        <label for="gender_identity">Gender Identity</label>
+        <input type="text" id="gender_identity" name="gender_identity" list="gender-list" value="{{ tags.gender_identity }}">
+        <datalist id="gender-list">
+          <option value="female"><option value="male"><option value="trans"><option value="non_binary">
+        </datalist>
+      </div>
+      <div class="field">
+        <label for="sex_assigned_at_birth">Sex Assigned at Birth</label>
+        <input type="text" id="sex_assigned_at_birth" name="sex_assigned_at_birth" list="sex-list" value="{{ tags.sex_assigned_at_birth }}">
+        <datalist id="sex-list"><option value="female"><option value="male"></datalist>
+      </div>
+      <div class="field">
+        <label for="birth_date">Birth Date</label>
+        <input type="date" id="birth_date" name="birth_date" value="{{ tags.birth_date }}">
+      </div>
+      <div class="field">
+        <label for="nationality">Nationality (ISO)</label>
+        <input type="text" id="nationality" name="nationality" value="{{ tags.nationality }}">
+      </div>
+      <div class="field">
+        <label for="ethnicity">Ethnicity</label>
+        <input type="text" id="ethnicity" name="ethnicity" value="{{ tags.ethnicity }}">
+      </div>
+      <div class="field">
+        <label for="occupation">Occupation (kommasepariert)</label>
+        <input type="text" id="occupation" name="occupation" value="{{ tags.occupation|join(', ') }}">
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Körperliche Merkmale</legend>
+    <div class="grid-3">
+      <div class="field">
+        <label for="height_cm">Height (cm)</label>
+        <input type="number" id="height_cm" name="height_cm" value="{{ tags.height_cm }}">
+      </div>
+      <div class="field">
+        <label for="weight_kg">Weight (kg)</label>
+        <input type="number" id="weight_kg" name="weight_kg" value="{{ tags.weight_kg }}">
+      </div>
+      <div class="field">
+        <label for="bra_size_eu">Bra Size (EU)</label>
+        <input type="text" id="bra_size_eu" name="bra_size_eu" value="{{ tags.bra_size_eu }}">
+      </div>
+      <div class="field">
+        <label for="boobs_type">Boobs Type</label>
+        <input type="text" id="boobs_type" name="boobs_type" list="boobs-list" value="{{ tags.boobs_type }}">
+        <datalist id="boobs-list"><option value="natural"><option value="enhanced"></datalist>
+      </div>
+      <div class="field">
+        <label for="body_type">Body Type</label>
+        <input type="text" id="body_type" name="body_type" list="body-list" value="{{ tags.body_type }}">
+        <datalist id="body-list">
+          <option value="slim"><option value="athletic"><option value="curvy"><option value="bbw"><option value="average">
+        </datalist>
+      </div>
+      <div class="field">
+        <label for="hair_color">Hair Color</label>
+        <input type="text" id="hair_color" name="hair_color" list="hair-list" value="{{ tags.hair_color }}">
+        <datalist id="hair-list">
+          <option value="blonde"><option value="brown"><option value="black"><option value="red"><option value="gray">
+        </datalist>
+      </div>
+      <div class="field">
+        <label for="eye_color">Eye Color</label>
+        <input type="text" id="eye_color" name="eye_color" list="eye-list" value="{{ tags.eye_color }}">
+        <datalist id="eye-list">
+          <option value="blue"><option value="brown"><option value="green"><option value="hazel"><option value="gray">
+        </datalist>
+      </div>
+      <div class="field">
+        <label for="birth_place_city">Geburtsort: Stadt</label>
+        <input type="text" id="birth_place_city" name="birth_place_city" value="{{ tags.birth_place.city }}">
+      </div>
+      <div class="field">
+        <label for="birth_place_state">Geburtsort: Bundesland</label>
+        <input type="text" id="birth_place_state" name="birth_place_state" value="{{ tags.birth_place.state }}">
+      </div>
+      <div class="field">
+        <label for="birth_place_country_iso">Geburtsort: Land (ISO)</label>
+        <input type="text" id="birth_place_country_iso" name="birth_place_country_iso" value="{{ tags.birth_place.country_iso }}">
+      </div>
+      <div class="field">
+        <label for="bust_cm">Bust (cm)</label>
+        <input type="number" id="bust_cm" name="bust_cm" value="{{ tags.body_measurements_cm.bust_cm }}">
+      </div>
+      <div class="field">
+        <label for="waist_cm">Waist (cm)</label>
+        <input type="number" id="waist_cm" name="waist_cm" value="{{ tags.body_measurements_cm.waist_cm }}">
+      </div>
+      <div class="field">
+        <label for="hips_cm">Hips (cm)</label>
+        <input type="number" id="hips_cm" name="hips_cm" value="{{ tags.body_measurements_cm.hips_cm }}">
+      </div>
+      <div class="field full">
+        <label for="pierce_locations">Piercings (kommasepariert)</label>
+        <input type="text" id="pierce_locations" name="pierce_locations" value="{{ tags.pierce_locations|join(', ') }}">
+      </div>
+      <div class="field full">
+        <label for="artist_tags">Artist Tags (kommasepariert)</label>
+        <input type="text" id="artist_tags" name="artist_tags" value="{{ tags.artist_tags|join(', ') }}">
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Aktivität</legend>
+    <div class="grid-3">
+      <div class="field">
+        <label for="number_videos">Anzahl Videos</label>
+        <input type="number" id="number_videos" name="number_videos" value="{{ tags.number_videos if tags.number_videos is not none else '' }}">
+      </div>
+      <div class="field">
+        <label for="active_since_year">Aktiv seit (Jahr)</label>
+        <input type="number" id="active_since_year" name="active_since_year" value="{{ tags.active_since_year if tags.active_since_year is not none else '' }}">
+      </div>
+      <div class="field">
+        <label for="active_until_year">Aktiv bis (Jahr)</label>
+        <input type="number" id="active_until_year" name="active_until_year" value="{{ tags.active_until_year if tags.active_until_year is not none else '' }}">
+      </div>
+      <div class="field checkbox-field">
+        <input type="checkbox" id="number_videos_is_lower_bound" name="number_videos_is_lower_bound" {{ "checked" if tags.number_videos_is_lower_bound else "" }}>
+        <label for="number_videos_is_lower_bound">Anzahl ist Untergrenze (mind.)</label>
+      </div>
+      <div class="field checkbox-field">
+        <input type="checkbox" id="is_currently_active" name="is_currently_active" {{ "checked" if (artist is none) or tags.is_currently_active else "" }}>
+        <label for="is_currently_active">Aktuell aktiv</label>
+      </div>
+      <div class="field">
+        <label for="priority">Priority</label>
+        <input type="text" id="priority" name="priority" list="priority-list" value="{{ tags.priority }}">
+        <datalist id="priority-list"><option value="main"><option value="side"><option value="guest"></datalist>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Notizen</legend>
+    <div class="field full">
+      <label for="notes">Notes</label>
+      <textarea id="notes" name="notes">{{ artist.notes if artist else '' }}</textarea>
+    </div>
+  </fieldset>
+
+  <div class="actions">
+    <button type="submit">Speichern</button>
+    <a class="btn" href="{{ url_for('artist_editor.index') }}">Abbrechen</a>
+  </div>
+</form>
+
+<script>
+let idManuallyEdited = {{ "true" if artist else "false" }};
+const idInput = document.getElementById('id');
+const nameInput = document.getElementById('canonical_name');
+
+idInput.addEventListener('input', function () { idManuallyEdited = true; });
+
+nameInput.addEventListener('input', function () {
+  if (idManuallyEdited) return;
+  const slug = nameInput.value
+    .toLowerCase()
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  idInput.value = slug ? 'artist_' + slug : '';
+});
+</script>
+</body>
+</html>

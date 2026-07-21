@@ -97,6 +97,13 @@ def cmd_dashboard(args: argparse.Namespace) -> None:
     run_dashboard(Path(args.config_dir), port=args.port)
 
 
+def cmd_artists(args: argparse.Namespace) -> None:
+    from afss.artist_editor.app import run_web
+
+    print(f"Artist-Editor läuft auf http://127.0.0.1:{args.port} (nur lokal erreichbar)")
+    run_web(Path(args.config_dir), port=args.port)
+
+
 def cmd_apply(args: argparse.Namespace) -> None:
     init_schema()
     from afss.apply import apply_profile, delete_verified_sources
@@ -237,6 +244,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_dashboard.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
     p_dashboard.add_argument("--port", type=int, default=5150, help="Port (Standard: 5150)")
     p_dashboard.set_defaults(func=cmd_dashboard)
+
+    p_artists = sub.add_parser("artists", help="Lokales Web-Formular für artists.json starten")
+    p_artists.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
+    p_artists.add_argument("--port", type=int, default=5152, help="Port (Standard: 5152)")
+    p_artists.set_defaults(func=cmd_artists)
 
     p_apply = sub.add_parser("apply", help="Verifiziert kopieren (nicht verschieben)")
     p_apply.add_argument("--profile", required=True, help="Profile id")

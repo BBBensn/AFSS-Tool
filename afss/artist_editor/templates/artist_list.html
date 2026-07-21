@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>AFSS Artists</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #222222; --muted: #666666; --border: #cccccc;
+    --th-bg: #f2f2f2; --btn-bg: #fafafa; --btn-hover: #eeeeee;
+    --flash-ok-bg: #e6f6e6; --flash-ok-border: #99cc99;
+    --flash-error-bg: #fdecea; --flash-error-border: #ee9999;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --fg: #eaeaea; --muted: #a0a0a0; --border: #444444;
+      --th-bg: #2a2a2c; --btn-bg: #2f2f31; --btn-hover: #3a3a3c;
+      --flash-ok-bg: #123320; --flash-ok-border: #2e7d4f;
+      --flash-error-bg: #3a1f1f; --flash-error-border: #a94442;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: var(--fg); background: var(--bg); }
+  h1 { margin-bottom: 0.2rem; }
+  .count { color: var(--muted); font-size: 0.9em; }
+  .flash { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.6rem 0; }
+  .flash-ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); }
+  .flash-error { background: var(--flash-error-bg); border: 1px solid var(--flash-error-border); }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { border: 1px solid var(--border); padding: 0.5rem 0.7rem; text-align: left; }
+  th { background: var(--th-bg); }
+  .aliases { color: var(--muted); font-size: 0.85em; }
+  a.btn, button { padding: 0.35rem 0.7rem; border: 1px solid var(--muted); border-radius: 4px;
+    background: var(--btn-bg); color: var(--fg); text-decoration: none; font-size: 0.9em; cursor: pointer; }
+  a.btn:hover, button:hover { background: var(--btn-hover); }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<h1>AFSS Artists</h1>
+<p class="count">{{ artists|length }} Einträge in artists.json</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="flash flash-{{ 'error' if category == 'error' else 'ok' }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<div class="top-bar">
+  <a class="btn" href="{{ url_for('artist_editor.new') }}">+ Neuer Artist</a>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Canonical Name</th>
+      <th>Aliases</th>
+      <th>Gender</th>
+      <th>Aktiv</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in artists %}
+    <tr>
+      <td>{{ a.canonical_name }}</td>
+      <td class="aliases">{{ (a.aliases or [])|join(", ") }}</td>
+      <td>{{ a.default_tags.gender_identity if a.default_tags else "" }}</td>
+      <td>{{ "ja" if a.active else "nein" }}</td>
+      <td><a class="btn" href="{{ url_for('artist_editor.edit', artist_id=a.id) }}">Bearbeiten</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</body>
+</html>
