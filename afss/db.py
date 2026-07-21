@@ -82,6 +82,12 @@ CREATE TABLE IF NOT EXISTS unresolved_folders(
     UNIQUE(profile_id, folder_name, folder_level)
 );
 
+CREATE TABLE IF NOT EXISTS trash_folder_names(
+    name_normalized TEXT PRIMARY KEY,
+    name_raw TEXT,
+    added_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS dedupe_groups(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_hash TEXT NOT NULL,

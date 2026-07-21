@@ -2,11 +2,14 @@ from pathlib import Path
 
 from flask import Blueprint, Flask, jsonify, redirect, render_template, request, url_for
 
+from afss.suggest import suggest_action
 from afss.tagging import (
     assign_to_existing_entity,
     assign_to_new_entity,
     get_pending_unresolved,
     ignore_folder,
+    set_category,
+    set_trash,
     search_entities,
 )
 
@@ -26,7 +29,11 @@ def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
     @bp.route("/<profile_id>/")
     def index(profile_id: str):
         rows = get_pending_unresolved(profile_id, db_path)
-        return render_template("index.html", profile_id=profile_id, rows=rows)
+        rows_with_suggestion = [(row, suggest_action(row[1])) for row in rows]
+        suggested_count = sum(1 for _row, suggestion in rows_with_suggestion if suggestion)
+        return render_template(
+            "index.html", profile_id=profile_id, rows=rows_with_suggestion, suggested_count=suggested_count
+        )
 
     @bp.route("/<profile_id>/search")
     def search(profile_id: str):
@@ -41,6 +48,10 @@ def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
 
         if action == "ignore":
             ignore_folder(unresolved_id, db_path)
+        elif action == "category":
+            set_category(unresolved_id, db_path)
+        elif action == "trash":
+            set_trash(unresolved_id, db_path)
         elif action in ("new_artist", "new_provider"):
             name = request.form.get("canonical_name", "").strip()
             if name:
@@ -49,6 +60,19 @@ def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
             entity_id = request.form.get("entity_id", "").strip()
             if entity_id:
                 assign_to_existing_entity(unresolved_id, _KIND_BY_ACTION[action], entity_id, db_path)
+
+        return redirect(url_for("tag.index", profile_id=profile_id))
+
+    @bp.route("/<profile_id>/accept_suggestions", methods=["POST"])
+    def accept_suggestions(profile_id: str):
+        """Übernimmt NUR die per Muster erkannten Vorschläge (category/trash), nichts Identitätsbezogenes."""
+        rows = get_pending_unresolved(profile_id, db_path)
+        for unresolved_id, folder_name, _level, _count, _sample in rows:
+            suggestion = suggest_action(folder_name)
+            if suggestion == "trash":
+                set_trash(unresolved_id, db_path)
+            elif suggestion == "category":
+                set_category(unresolved_id, db_path)
 
         return redirect(url_for("tag.index", profile_id=profile_id))
 

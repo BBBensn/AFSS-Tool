@@ -137,3 +137,50 @@ def ignore_folder(unresolved_id: int, db_path: Path | None = None) -> None:
     )
     conn.commit()
     conn.close()
+
+
+def set_category(unresolved_id: int, db_path: Path | None = None) -> None:
+    """Markiert einen Ordner als legitime Kategorie (z.B. 'Chat', 'Pics') - kein Artist/Provider,
+    aber auch kein Datenmüll. Taucht danach nicht mehr in der pending-Liste auf."""
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE unresolved_folders SET status = 'category', resolved_to_id = NULL WHERE id = ?",
+        (unresolved_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_trash(unresolved_id: int, db_path: Path | None = None) -> None:
+    """Markiert einen Ordner als Datenmüll UND merkt sich den Namen global, damit scan.py
+    diesen Ordnernamen ab sofort auf allen Profilen automatisch überspringt."""
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+
+    cur.execute("SELECT folder_name FROM unresolved_folders WHERE id = ?", (unresolved_id,))
+    row = cur.fetchone()
+    if row is None:
+        conn.close()
+        raise ValueError(f"unresolved_folders id nicht gefunden: {unresolved_id}")
+    folder_name = row[0]
+
+    cur.execute(
+        "INSERT OR IGNORE INTO trash_folder_names(name_normalized, name_raw, added_at) VALUES (?, ?, datetime('now'))",
+        (normalize_name(folder_name), folder_name),
+    )
+    cur.execute(
+        "UPDATE unresolved_folders SET status = 'trash', resolved_to_id = NULL WHERE id = ?",
+        (unresolved_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_trash_folder_names(db_path: Path | None = None) -> set[str]:
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT name_normalized FROM trash_folder_names")
+    names = {r[0] for r in cur.fetchall()}
+    conn.close()
+    return names

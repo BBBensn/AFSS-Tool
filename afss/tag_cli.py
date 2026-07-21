@@ -1,11 +1,14 @@
 from pathlib import Path
 
+from afss.suggest import suggest_action
 from afss.tagging import (
     assign_to_existing_entity,
     assign_to_new_entity,
     get_pending_unresolved,
     ignore_folder,
     search_entities,
+    set_category,
+    set_trash,
 )
 
 
@@ -25,10 +28,14 @@ def run_interactive_tag(profile_id: str, db_path: Path | None = None) -> None:
             return
 
         unresolved_id, folder_name, folder_level, occurrence_count, sample_path = pending[0]
-        print(f"\n[level{folder_level}] '{folder_name}'  ({occurrence_count}x, z.B. {sample_path})")
+        suggestion = suggest_action(folder_name)
+        suggestion_hint = f"  (Vorschlag: {suggestion})" if suggestion else ""
+        print(f"\n[level{folder_level}] '{folder_name}'  ({occurrence_count}x, z.B. {sample_path}){suggestion_hint}")
         print("  [a] Artist neu     [A] Artist bestehend (Suche)")
         print("  [p] Provider neu   [P] Provider bestehend (Suche)")
-        print("  [i] Ignorieren     [q] Beenden")
+        print("  [c] Kategorie      [t] Trash")
+        ignore_label = "Ignorieren (→ Collection-Name)" if folder_level == 2 else "Ignorieren"
+        print(f"  [i] {ignore_label}     [q] Beenden")
         choice = input("> ").strip()
 
         if choice == "q":
@@ -36,6 +43,14 @@ def run_interactive_tag(profile_id: str, db_path: Path | None = None) -> None:
 
         if choice == "i":
             ignore_folder(unresolved_id, db_path)
+            continue
+
+        if choice == "c":
+            set_category(unresolved_id, db_path)
+            continue
+
+        if choice == "t":
+            set_trash(unresolved_id, db_path)
             continue
 
         if choice in ("a", "p"):

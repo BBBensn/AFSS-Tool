@@ -4,6 +4,7 @@ import yaml
 
 from afss.db import get_connection, init_schema
 from afss.scan import scan_profile
+from afss.tagging import set_trash
 
 
 def _write_profiles_yml(config_dir: Path, profile_id: str, root: Path) -> None:
@@ -52,6 +53,47 @@ def test_scan_counts_and_folder_levels(tmp_path):
     row = cur.fetchone()
     conn.close()
     assert row == ("Artist One", "Collection A")
+
+
+def test_scan_skips_hidden_directories(tmp_path):
+    root = tmp_path / "fake_root"
+    _build_fake_root(root)
+    (root / ".Spotlight-V100").mkdir(parents=True)
+    (root / ".Spotlight-V100" / "index.dat").write_bytes(b"x")
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    result = scan_profile("test_profile", config_dir, db_path)
+
+    assert result["total_files"] == 4
+
+
+def test_scan_skips_folders_marked_as_trash(tmp_path):
+    root = tmp_path / "fake_root"
+    _build_fake_root(root)
+    (root / "$RECYCLE.BIN").mkdir(parents=True)
+    (root / "$RECYCLE.BIN" / "deleted.mp4").write_bytes(b"x")
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO unresolved_folders(profile_id, folder_name, folder_level, occurrence_count, status) "
+        "VALUES ('test_profile', '$RECYCLE.BIN', 1, 1, 'pending')"
+    )
+    unresolved_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    set_trash(unresolved_id, db_path)
+
+    result = scan_profile("test_profile", config_dir, db_path)
+
+    assert result["total_files"] == 4
 
 
 def test_scan_is_idempotent(tmp_path):

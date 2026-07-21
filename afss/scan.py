@@ -6,6 +6,7 @@ from pathlib import Path
 from afss.config import get_profile
 from afss.db import get_connection
 from afss.normalize import normalize_name
+from afss.tagging import get_trash_folder_names
 
 VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".wmv", ".m4v"}
 PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff"}
@@ -57,11 +58,17 @@ def scan_profile(profile_id: str, config_dir: Path, db_path: Path | None = None)
 
     cur.execute("DELETE FROM media_items WHERE profile_id = ?", (profile_id,))
 
+    trash_names = get_trash_folder_names(db_path)
+
     now_iso = datetime.datetime.now().isoformat()
     media_type_counts = Counter()
     rows = []
 
     for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d for d in dirnames if not d.startswith(".") and normalize_name(d) not in trash_names
+        ]
+
         for fn in filenames:
             if fn.startswith("."):
                 continue

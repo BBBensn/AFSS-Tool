@@ -3,8 +3,11 @@ from afss.tagging import (
     assign_to_existing_entity,
     assign_to_new_entity,
     get_pending_unresolved,
+    get_trash_folder_names,
     ignore_folder,
     search_entities,
+    set_category,
+    set_trash,
 )
 
 
@@ -124,6 +127,51 @@ def test_get_pending_unresolved_sorted_by_occurrence(tmp_path):
 
     rows = get_pending_unresolved("p1", db_path)
     assert [r[1] for r in rows] == ["High", "Low"]
+
+
+def test_set_category_sets_status(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    unresolved_id = _seed_unresolved(db_path, folder_name="Chat")
+
+    set_category(unresolved_id, db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT status, resolved_to_id FROM unresolved_folders WHERE id = ?", (unresolved_id,))
+    assert cur.fetchone() == ("category", None)
+    conn.close()
+
+
+def test_set_trash_sets_status_and_records_name(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    unresolved_id = _seed_unresolved(db_path, folder_name="$RECYCLE.BIN")
+
+    set_trash(unresolved_id, db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT status, resolved_to_id FROM unresolved_folders WHERE id = ?", (unresolved_id,))
+    assert cur.fetchone() == ("trash", None)
+    conn.close()
+
+    assert get_trash_folder_names(db_path) == {"recyclebin"}
+
+
+def test_set_trash_is_idempotent(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    unresolved_id = _seed_unresolved(db_path, folder_name="$RECYCLE.BIN")
+
+    set_trash(unresolved_id, db_path)
+    set_trash(unresolved_id, db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM trash_folder_names")
+    assert cur.fetchone()[0] == 1
+    conn.close()
 
 
 def test_search_entities(tmp_path):

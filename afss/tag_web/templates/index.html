@@ -29,11 +29,26 @@
   .suggestions li { padding: 0.25rem 0.5rem; cursor: pointer; }
   .suggestions li:hover { background: var(--hover); }
   .sample-path { color: var(--muted); font-size: 0.85em; }
+  .suggestion-badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.8em;
+    margin-left: 0.4rem; }
+  .suggestion-trash { background: #5a2a2a; color: #ffb3b3; }
+  .suggestion-category { background: #2a4a2a; color: #b3ffb3; }
+  .accept-bar { margin-bottom: 1rem; }
 </style>
 </head>
 <body>
 <h1>AFSS Tag — Profil {{ profile_id }}</h1>
 <p>{{ rows|length }} offene Ordner (Standard-Sortierung: Häufigkeit absteigend — Spaltenköpfe klickbar).</p>
+
+{% if suggested_count %}
+<div class="accept-bar">
+  <form method="post" action="{{ url_for('tag.accept_suggestions', profile_id=profile_id) }}"
+        onsubmit="return confirm('{{ suggested_count }} erkannte Kategorie/Trash-Vorschläge übernehmen? Alles andere bleibt unangetastet.');">
+    <button type="submit">{{ suggested_count }} erkannte Vorschläge übernehmen</button>
+  </form>
+</div>
+{% endif %}
+
 <table id="tag-table">
   <thead>
     <tr>
@@ -45,16 +60,25 @@
     </tr>
   </thead>
   <tbody>
-    {% for id, folder_name, folder_level, occurrence_count, sample_path in rows %}
+    {% for row, suggestion in rows %}
+    {% set id, folder_name, folder_level, occurrence_count, sample_path = row %}
     <tr>
       <td>{{ occurrence_count }}</td>
       <td>{{ folder_level }}</td>
-      <td>{{ folder_name }}</td>
+      <td>
+        {{ folder_name }}
+        {% if suggestion == "trash" %}<span class="suggestion-badge suggestion-trash">Vorschlag: Trash</span>{% endif %}
+        {% if suggestion == "category" %}<span class="suggestion-badge suggestion-category">Vorschlag: Kategorie</span>{% endif %}
+      </td>
       <td class="sample-path">{{ sample_path or "" }}</td>
       <td>
         <form class="row-form" method="post" action="{{ url_for('tag.assign', profile_id=profile_id, unresolved_id=id) }}">
           <select name="action" onchange="onActionChange(this)">
-            <option value="ignore">Ignorieren</option>
+            <option value="ignore" {{ "selected" if not suggestion else "" }}>
+              {{ "Ignorieren (→ Collection-Name)" if folder_level == 2 else "Ignorieren" }}
+            </option>
+            <option value="category" {{ "selected" if suggestion == "category" else "" }}>Kategorie</option>
+            <option value="trash" {{ "selected" if suggestion == "trash" else "" }}>Trash</option>
             <option value="new_artist">Artist neu</option>
             <option value="existing_artist">Artist bestehend (Suche)</option>
             <option value="new_provider">Provider neu</option>

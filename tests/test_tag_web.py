@@ -95,3 +95,89 @@ def test_assign_ignore_sets_status(tmp_path):
     cur.execute("SELECT status FROM unresolved_folders WHERE id = ?", (unresolved_id,))
     assert cur.fetchone()[0] == "ignored"
     conn.close()
+
+
+def test_assign_category_and_trash(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO unresolved_folders(profile_id, folder_name, folder_level, occurrence_count, status) "
+        "VALUES ('p1', 'Chat', 1, 3, 'pending')"
+    )
+    chat_id = cur.lastrowid
+    cur.execute(
+        "INSERT INTO unresolved_folders(profile_id, folder_name, folder_level, occurrence_count, status) "
+        "VALUES ('p1', '$RECYCLE.BIN', 1, 3, 'pending')"
+    )
+    trash_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    app = create_app("p1", db_path)
+    client = app.test_client()
+
+    client.post(f"/tag/p1/assign/{chat_id}", data={"action": "category"})
+    client.post(f"/tag/p1/assign/{trash_id}", data={"action": "trash"})
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT status FROM unresolved_folders WHERE id = ?", (chat_id,))
+    assert cur.fetchone()[0] == "category"
+    cur.execute("SELECT status FROM unresolved_folders WHERE id = ?", (trash_id,))
+    assert cur.fetchone()[0] == "trash"
+    cur.execute("SELECT name_normalized FROM trash_folder_names")
+    assert cur.fetchone()[0] == "recyclebin"
+    conn.close()
+
+
+def test_index_shows_suggestion_badges(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO unresolved_folders(profile_id, folder_name, folder_level, occurrence_count, status) "
+        "VALUES ('p1', 'Pics', 1, 3, 'pending')"
+    )
+    conn.commit()
+    conn.close()
+
+    app = create_app("p1", db_path)
+    client = app.test_client()
+    resp = client.get("/tag/p1/")
+
+    assert b"Vorschlag: Kategorie" in resp.data
+    assert b"erkannte Vorschl" in resp.data
+
+
+def test_accept_suggestions_only_applies_pattern_matches(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)  # 'Weird Folder' hat keinen Vorschlag
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO unresolved_folders(profile_id, folder_name, folder_level, occurrence_count, status) "
+        "VALUES ('p1', 'Pics', 1, 3, 'pending')"
+    )
+    cur.execute(
+        "INSERT INTO unresolved_folders(profile_id, folder_name, folder_level, occurrence_count, status) "
+        "VALUES ('p1', '$RECYCLE.BIN', 1, 3, 'pending')"
+    )
+    conn.commit()
+    conn.close()
+
+    app = create_app("p1", db_path)
+    client = app.test_client()
+    client.post("/tag/p1/accept_suggestions")
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT status FROM unresolved_folders WHERE folder_name = 'Pics'")
+    assert cur.fetchone()[0] == "category"
+    cur.execute("SELECT status FROM unresolved_folders WHERE folder_name = '$RECYCLE.BIN'")
+    assert cur.fetchone()[0] == "trash"
+    cur.execute("SELECT status FROM unresolved_folders WHERE folder_name = 'Weird Folder'")
+    assert cur.fetchone()[0] == "pending"
+    conn.close()
