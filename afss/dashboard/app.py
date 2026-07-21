@@ -20,10 +20,14 @@ def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
 
     @app.route("/")
     def index():
-        profiles = load_profiles(config_dir)
+        try:
+            profiles = load_profiles(config_dir)
+        except (FileNotFoundError, ValueError) as exc:
+            return render_template("dashboard.html", rows=[], config_dir=str(config_dir), config_error=str(exc))
+
         stats_by_profile = {r["profile_id"]: r for r in report_overview(db_path=db_path)}
         rows = [{"profile": p, "stats": stats_by_profile.get(p["id"])} for p in profiles]
-        return render_template("dashboard.html", rows=rows, config_dir=str(config_dir))
+        return render_template("dashboard.html", rows=rows, config_dir=str(config_dir), config_error=None)
 
     @app.route("/run/<action>/<profile_id>", methods=["POST"])
     def run_action(action: str, profile_id: str):

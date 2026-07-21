@@ -51,6 +51,13 @@
   {% endfor %}
 {% endwith %}
 
+{% if config_error %}
+  <div class="flash flash-error">
+    <strong>Config-Fehler:</strong> {{ config_error }}<br>
+    Lege eine <code>legacy_profiles.yml</code> im angegebenen Config-Verzeichnis an
+    (siehe <code>config/legacy_profiles.yml</code> im Repo als Vorlage).
+  </div>
+{% else %}
 <table>
   <thead>
     <tr>
@@ -107,5 +114,6 @@
     {% endfor %}
   </tbody>
 </table>
+{% endif %}
 </body>
 </html>

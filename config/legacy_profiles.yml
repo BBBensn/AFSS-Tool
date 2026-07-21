@@ -1,0 +1,9 @@
+profiles:
+  - id: legacy_cat01
+    description: "Legacy-Import für Category 1 (artist-first, mixed content)"
+    enabled: true
+
+    # WICHTIG: Diesen Pfad auf den echten Mount-Punkt der Platte anpassen,
+    # z.B. "/Volumes/Meine_Externe_Platte" (macOS-Pfad, kein Windows-Pfad!)
+    root_path: "/Volumes/BITTE_PFAD_ANPASSEN"
+    disk_label: "Backup_HDD_1"

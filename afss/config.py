@@ -19,7 +19,10 @@ def load_profiles(config_dir: Path) -> list[dict]:
     if not path.exists():
         raise FileNotFoundError(f"legacy_profiles.yml nicht gefunden: {path}")
     with path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh) or {}
+        try:
+            data = yaml.safe_load(fh) or {}
+        except yaml.YAMLError as exc:
+            raise ValueError(f"legacy_profiles.yml ist kein gültiges YAML: {exc}") from exc
     return data.get("profiles", [])
 
 
