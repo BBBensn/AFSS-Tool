@@ -1,0 +1,121 @@
+{
+  "TOKEN_1921": [
+    {
+      "id": "TOKEN_1926",
+      "canonical_TOKEN_0419": "TOKEN_0452",
+      "aliases": ["[TOKEN_0452]", "TOKEN_0452", "TOKEN_1948", "TOKEN_1966 TOKEN_1914", "[TOKEN_1924]", "TOKEN_1924", "[TOKEN_0452] TOKEN_1656"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1938",
+      "canonical_TOKEN_0419": "TOKEN_1888",
+      "aliases": ["[TOKEN_1942]", "TOKEN_1942", "TOKEN_1888", "TOKEN_1903", "TOKEN_1966 TOKEN_1902"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1931",
+      "canonical_TOKEN_0419": "TOKEN_1919",
+      "aliases": ["TOKEN_1919", "TOKEN_1933", "TOKEN_1966 TOKEN_1901", "TOKEN_1964 TOKEN_1929", "TOKEN_1919 TOKEN_1915", "TOKEN_1919 TOKEN_1896"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1907",
+      "canonical_TOKEN_0419": "TOKEN_1962",
+      "aliases": ["TOKEN_1962", "TOKEN_1962", "TOKEN_1925", "TOKEN_1959 TOKEN_1957", "TOKEN_1936 TOKEN_1950"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1911",
+      "canonical_TOKEN_0419": "TOKEN_1904",
+      "aliases": ["[TOKEN_1906]", "TOKEN_1904", "TOKEN_1909 TOKEN_1892", "TOKEN_1899", "TOKEN_1939", "TOKEN_1895 TOKEN_1898"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1934",
+      "canonical_TOKEN_0419": "TOKEN_1953",
+      "aliases": ["[TOKEN_1930]", "TOKEN_1930", "TOKEN_1953", "TOKEN_1908"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1913",
+      "canonical_TOKEN_0419": "TOKEN_1952",
+      "aliases": ["TOKEN_1967", "TOKEN_1952", "TOKEN_1935", "TOKEN_1958", "TOKEN_1893", "TOKEN_1966 TOKEN_1951", "TOKEN_1964 TOKEN_1951"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1918",
+      "canonical_TOKEN_0419": "TOKEN_1945",
+      "aliases": ["[TOKEN_1945]", "TOKEN_1945", "TOKEN_1968 TOKEN_0704", "TOKEN_1920", "TOKEN_1970 video"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1940",
+      "canonical_TOKEN_0419": "TOKEN_1956",
+      "aliases": ["[TOKEN_1947]", "TOKEN_1947", "TOKEN_1956", "TOKEN_1941"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1891",
+      "canonical_TOKEN_0419": "TOKEN_1890",
+      "aliases": ["[TOKEN_1944]", "TOKEN_1944", "TOKEN_1890", "TOKEN_1912"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1954",
+      "canonical_TOKEN_0419": "TOKEN_1916",
+      "aliases": ["[TOKEN_1905]", "TOKEN_1961", "TOKEN_1905", "TOKEN_1932", "TOKEN_1955", "TOKEN_1922" ],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1949",
+      "canonical_TOKEN_0419": "TOKEN_1900",
+      "aliases": ["TOKEN_1917", "TOKEN_1937", "TOKEN_1900", "TOKEN_1928", "TOKEN_1889", "TOKEN_1943"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1894"
+      },
+      "active": true
+    },
+    {
+      "id": "TOKEN_1965",
+      "canonical_TOKEN_0419": "TOKEN_1946",
+      "aliases": ["TOKEN_1923", "TOKEN_1946", "TOKEN_1910", "TOKEN_1963", "TOKEN_1960"],
+      "default_tags": {
+        "TOKEN_1897": "TOKEN_1927"
+      },
+      "active": true
+    }    
+  ]
+}

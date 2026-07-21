@@ -1,0 +1,153 @@
+{
+  "TOKEN_TOKEN_18623": [
+    {
+      "id": "TOKEN_1827",
+      "canonical_TOKEN_0419": "TOKEN_0216 de TOKEN_1836",
+      "aliases": [
+        "TOKEN_0216 de TOKEN_1836",
+        "TOKEN_1845",
+        "TOKEN_0216 TOKEN_TOKEN_18620",
+        "TOKEN_1841 TOKEN_TOKEN_18620",
+        "TOKEN_0216 TOKEN_TOKEN_18628",
+        "TOKEN_1830 De TOKEN_1836",
+        "TOKEN_1841 De TOKEN_1836",
+        "TOKEN_0216 TOKEN_TOKEN_18620 B"
+      ],
+      "default_tags": {
+        "gender": "TOKEN_1860",
+        "birth_date": "TOKEN_1813",
+        "occupation": ["TOKEN_TOKEN_18621", "TOKEN_1814", "TOKEN_TOKEN_18629", "TOKEN_1867"],
+        "birth_place": {
+          "TOKEN_0144": "TOKEN_TOKEN_18627",
+          "TOKEN_1879": "TOKEN_1850",
+          "TOKEN_1884": "TOKEN_1855"
+        },
+        "nationality": "TOKEN_1855",
+        "TOKEN_1842": "TOKEN_1864",
+
+        "height_cm": "TOKEN_1869",
+        "TOKEN_1825": "45",
+        "TOKEN_1824": {
+          "TOKEN_1871": "82",
+          "TOKEN_1846": "56",
+          "TOKEN_1876": "84"
+        },
+        "TOKEN_1822": "TOKEN_1811",
+        "TOKEN_1799": "TOKEN_1873",
+        "TOKEN_1880": "TOKEN_1818",
+        "TOKEN_1831": "TOKEN_1176",
+        "TOKEN_1870": "TOKEN_1854",
+        "artist_tags": ["TOKEN_1856", "TOKEN_1881", "TOKEN_0187", "TOKEN_1851"],
+        "TOKEN_1874": ["TOKEN_1852", "TOKEN_1849 TOKEN_1820", "TOKEN_1829", "TOKEN_1883"],
+
+        "number_videos": TOKEN_1887,
+        "number_videos_is_lower_bound": true,
+        "active_since_year": TOKEN_1819,
+        "active_until_year": null,
+        "is_currently_active": true,
+
+
+        "priority": "main"
+      },
+      "TOKEN_0898_TOKEN_0419": "null",
+      "notes": "TOKEN_1853 TOKEN_1840 in TOKEN_0979 TOKEN_1878",
+      "active": true
+    },
+
+    {
+      "id": "TOKEN_1844",
+      "canonical_TOKEN_0419": "TOKEN_0193 TOKEN_0859",
+      "aliases": [
+        "TOKEN_0193 TOKEN_0859",
+        "TOKEN_1857",
+        "TOKEN_1859",
+        "TOKEN_1834"
+      ],
+      "default_tags": {
+        "gender": "TOKEN_1860",
+        "birth_date": "null",
+        "occupation": ["TOKEN_TOKEN_18621", "TOKEN_TOKEN_18629", "TOKEN_1867"],
+        "birth_place": {
+          "TOKEN_0144": "null",
+          "TOKEN_1879": "null",
+          "TOKEN_1884": "TOKEN_1882"
+        },
+        "nationality": "TOKEN_1882",
+        "TOKEN_1842": "TOKEN_1864",
+
+        "height_cm": "TOKEN_1869",
+        "TOKEN_1825": "39",
+        "TOKEN_1824": {
+          "TOKEN_1871": "84",
+          "TOKEN_1846": "53",
+          "TOKEN_1876": "81"
+        },
+        "TOKEN_1822": "null",
+        "TOKEN_1799": "TOKEN_1873",     
+        "TOKEN_1880": "TOKEN_1818",
+        "TOKEN_1831": ["TOKEN_1865", "TOKEN_1877", "TOKEN_0884", "TOKEN_1863"],
+        "TOKEN_1870": "TOKEN_1843",
+        "artist_tags": ["TOKEN_1856", "TOKEN_1881", "TOKEN_0187"],
+        "TOKEN_1874": ["TOKEN_1852", "TOKEN_1829"],
+
+
+        "number_videos": null,
+        "number_videos_is_lower_bound": null,
+        "active_since_year": null,
+        "active_until_year": null,
+        "is_currently_active": true,
+
+        "priority": "main"
+      },
+      "TOKEN_0898_TOKEN_0419": "null",
+      "notes": "",
+      "active": true
+    },    
+
+    {
+      "id": "TOKEN_1866",
+      "canonical_TOKEN_0419": "TOKEN_1326",
+      "aliases": ["TOKEN_1551", "TOKEN_1326", "TOKEN_1045 TOKEN_1817 Jo", "TOKEN_1810"],
+      "default_tags": {
+        "gender": "TOKEN_1860",
+        "birth_date": "TOKEN_1875",
+        "occupation": ["TOKEN_TOKEN_18621", "TOKEN_1867"],
+        "birth_place": {
+          "TOKEN_0144": "null",
+          "TOKEN_1879": "null",
+          "TOKEN_1884": "TOKEN_1868"
+        },
+        "nationality": "TOKEN_1868",
+        "TOKEN_1842": "TOKEN_1864",
+
+        "height_cm": "TOKEN_1862",
+        "TOKEN_1825": "55",
+        "TOKEN_1824": {
+          "TOKEN_1871": "81",
+          "TOKEN_1846": "53",
+          "TOKEN_1876": "76"
+        },
+        "TOKEN_1822": "TOKEN_1816",
+        "TOKEN_1799": "TOKEN_1848",
+        "TOKEN_1880": "TOKEN_1818",
+        "TOKEN_1831": "TOKEN_1176",
+        "TOKEN_1870": "TOKEN_1877",
+        "artist_tags": ["TOKEN_1881"],
+        "TOKEN_1874": ["TOKEN_1852"],
+
+
+        "number_videos": null,
+        "number_videos_is_lower_bound": null,
+        "active_since_year": TOKEN_1815,
+        "active_until_year": null,
+        "is_currently_active": true,
+
+
+        "priority": "main"
+      },
+      "TOKEN_0898_TOKEN_0419": "null",
+      "notes": "TOKEN_1315 and TOKEN_1812 TOKEN_TOKEN_18624",
+      "active": true
+    }
+  ]
+}

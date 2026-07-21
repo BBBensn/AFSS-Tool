@@ -1,0 +1,69 @@
+profiles:
+  - id: legacy_cat01
+    description: "Legacy-Import für Category 1 (artist-first, mixed content)"
+    enabled: true
+
+    # Diesen Pfad ANPASSEN:
+    root_path: "G:\sutff\_An"
+    media_type: "mixed"
+
+    # Ebene 1 = Artists (Artist_1, Artist_2, ...)
+    artist_level:
+      depth: 1          # 0 = category_1, 1 = Artist_*
+      source: "folder_name"
+
+    # Ebene 2 = Unterordner je Artist:
+    # - Collections (Collection_xx)
+    # - Provider-Dumps (Provider_xxx)
+    # - screenlists, screenshots usw.
+    subfolder_rules:
+      - depth: 2
+        role: "collection_or_provider"
+        flatten: false                 # Files bleiben logisch in dieser Collection
+        provider_from_folder: true     # wenn Foldername einem Provider entspricht
+        collection_from_folder: true   # sonst als Collection-Name übernehmen
+        ignore_if_name_in:
+          - "screenlists"
+          - "screenshots"
+          - ".directory"
+
+      # Tiefer verschachtelte Strukturen (Jahres-/Monatsordner bei SW)
+      - depth: 3
+        role: "nested_collection"
+        flatten: true                  # Inhalte eine Ebene hochziehen
+        inherit_collection_from_parent: true
+
+    file_patterns:
+      - name: "video_default"
+        kind: "video"
+        glob: "*.mp4"
+        title_from: "filename_no_ext"
+        artist_in_filename: false
+        provider_in_filename: false
+
+      - name: "photo_jpg"
+        kind: "photo"
+        glob: "*.jpg"
+        title_from: "filename_no_ext"
+
+      - name: "photo_png"
+        kind: "photo"
+        glob: "*.png"
+        title_from: "filename_no_ext"
+
+      - name: "provider_meta_json"
+        kind: "provider_meta"
+        glob: "*.json*"
+        title_from: "filename_no_ext"
+
+      - name: "plain_text_notes"
+        kind: "note"
+        glob: "*.txt"
+        action: "keep"        # Metadaten evtl. später auswerten
+        title_from: "filename_no_ext"
+
+    flags:
+      treat_jpg_as_photos: true
+      treat_png_as_photos: true
+      mark_origin_as: "legacy_cat01"
+      default_media_type_if_unknown: "video"

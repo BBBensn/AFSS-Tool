@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.DS_Store
+
+# lokale/sensible Daten, nie committen
+afss.db
+config/artists.json
+config/providers.json
+config/mapping.json
+*.mapping.json

@@ -1,0 +1,8 @@
+Clean
+
+cd AFSS
+python tools/text_cleaner.py clean config/irgendwas.txt
+
+
+Declean
+python tools/text_cleaner.py declean config/irgendwas_cleaned.txt
