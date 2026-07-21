@@ -167,7 +167,7 @@ def test_parse_bio_route_returns_parsed_fields(tmp_path):
     )
 
     assert resp.status_code == 200
-    assert resp.get_json() == {"hair_color": "Brown", "eye_color": "Grey"}
+    assert resp.get_json() == {"hair_color": "brown", "eye_color": "grey"}
 
 
 def test_parse_bio_route_empty_text_returns_empty_json(tmp_path):

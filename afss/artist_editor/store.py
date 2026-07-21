@@ -106,30 +106,41 @@ def _parse_csv_list(value: str) -> list[str]:
     return [v.strip() for v in value.split(",") if v.strip()]
 
 
+def _parse_csv_list_lower(value: str) -> list[str]:
+    return [v.strip().lower() for v in value.split(",") if v.strip()]
+
+
+def _lower(value: str) -> str:
+    return (value or "").strip().lower()
+
+
 def _parse_int(value: str) -> int | None:
     value = (value or "").strip()
     return int(value) if value else None
 
 
 def artist_from_form(form) -> dict:
+    """Freitext-Attribute (Gender, Ethnicity, Farben, ...) werden konsequent lowercase gespeichert,
+    passend zur bestehenden artists.json-Konvention. Ausgenommen: canonical_name, aliases, real_name,
+    notes, id - das sind Eigennamen/Freitext, deren Groß-/Kleinschreibung bewusst erhalten bleibt."""
     return {
         "id": form.get("id", "").strip(),
         "canonical_name": form.get("canonical_name", "").strip(),
         "aliases": _parse_csv_list(form.get("aliases", "")),
         "default_tags": {
-            "gender_identity": form.get("gender_identity", "").strip(),
-            "sex_assigned_at_birth": form.get("sex_assigned_at_birth", "").strip(),
+            "gender_identity": _lower(form.get("gender_identity", "")),
+            "sex_assigned_at_birth": _lower(form.get("sex_assigned_at_birth", "")),
             "birth_date": serialize_partial_date(
                 form.get("birth_year", ""), form.get("birth_month", ""), form.get("birth_day", "")
             ),
-            "occupation": _parse_csv_list(form.get("occupation", "")),
+            "occupation": _parse_csv_list_lower(form.get("occupation", "")),
             "birth_place": {
-                "city": form.get("birth_place_city", "").strip(),
-                "state": form.get("birth_place_state", "").strip(),
-                "country_iso": form.get("birth_place_country_iso", "").strip(),
+                "city": _lower(form.get("birth_place_city", "")),
+                "state": _lower(form.get("birth_place_state", "")),
+                "country_iso": _lower(form.get("birth_place_country_iso", "")),
             },
-            "nationality": form.get("nationality", "").strip(),
-            "ethnicity": form.get("ethnicity", "").strip(),
+            "nationality": _lower(form.get("nationality", "")),
+            "ethnicity": _lower(form.get("ethnicity", "")),
             "height_cm": form.get("height_cm", "").strip(),
             "weight_kg": form.get("weight_kg", "").strip(),
             "body_measurements_cm": {
@@ -137,19 +148,19 @@ def artist_from_form(form) -> dict:
                 "waist_cm": form.get("waist_cm", "").strip(),
                 "hips_cm": form.get("hips_cm", "").strip(),
             },
-            "bra_size_eu": form.get("bra_size_eu", "").strip(),
-            "boobs_type": form.get("boobs_type", "").strip(),
-            "body_type": form.get("body_type", "").strip(),
-            "hair_color": form.get("hair_color", "").strip(),
-            "eye_color": form.get("eye_color", "").strip(),
-            "artist_tags": _parse_csv_list(form.get("artist_tags", "")),
-            "pierce_locations": _parse_csv_list(form.get("pierce_locations", "")),
+            "bra_size_eu": _lower(form.get("bra_size_eu", "")),
+            "boobs_type": _lower(form.get("boobs_type", "")),
+            "body_type": _lower(form.get("body_type", "")),
+            "hair_color": _lower(form.get("hair_color", "")),
+            "eye_color": _lower(form.get("eye_color", "")),
+            "artist_tags": _parse_csv_list_lower(form.get("artist_tags", "")),
+            "pierce_locations": _parse_csv_list_lower(form.get("pierce_locations", "")),
             "number_videos": _parse_int(form.get("number_videos", "")),
             "number_videos_is_lower_bound": form.get("number_videos_is_lower_bound") == "on",
             "active_since_year": _parse_int(form.get("active_since_year", "")),
             "active_until_year": _parse_int(form.get("active_until_year", "")),
             "is_currently_active": form.get("is_currently_active") == "on",
-            "priority": form.get("priority", "").strip(),
+            "priority": _lower(form.get("priority", "")),
         },
         "real_name": form.get("real_name", "").strip(),
         "notes": form.get("notes", "").strip(),

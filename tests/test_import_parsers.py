@@ -63,18 +63,18 @@ def test_parse_babepedia_extracts_core_fields():
     assert result["birth_year"] == "1995"
     assert result["birth_month"] == "2"
     assert result["birth_day"] == "13"
-    assert result["birth_place_country_iso"] == "United States"
-    assert result["nationality"] == "American"
-    assert result["ethnicity"] == "Caucasian"
+    assert result["birth_place_country_iso"] == "usa"
+    assert result["nationality"] == "usa"
+    assert result["ethnicity"] == "caucasian"
     assert result["occupation"] == [
-        "Activist", "Adult Model", "Fetish Model", "Influencer", "Porn Star", "TikTok Star",
+        "activist", "adult model", "fetish model", "influencer", "porn star", "tiktok star",
     ]
-    assert result["hair_color"] == "Brown"
-    assert result["eye_color"] == "Grey"
+    assert result["hair_color"] == "brown"
+    assert result["eye_color"] == "grey"
     assert result["height_cm"] == "162"
-    assert result["body_type"] == "Slim"
-    assert result["boobs_type"] == "Fake/Enhanced"
-    assert result["pierce_locations"] == ["Various"]
+    assert result["body_type"] == "slim"
+    assert result["boobs_type"] == "enhanced"
+    assert result["pierce_locations"] == ["various"]
     assert result["active_since_year"] == "2022"
     assert result["is_currently_active"] is True
 
@@ -90,25 +90,31 @@ def test_parse_babepedia_converts_measurements_inches_to_cm():
 def test_parse_boobpedia_extracts_aliases_and_birthplace():
     result = parse_pasted_bio("boobpedia", BOOBPEDIA_SAMPLE)
 
+    # Aliases sind Eigennamen und bleiben in Originalschreibweise erhalten.
     assert result["aliases"] == ["Alaina Hicks", "Alaina James", "Elena De Santis", "Dixie"]
     assert result["birth_year"] == "1993"
     assert result["birth_month"] == "5"
     assert result["birth_day"] == "9"
-    assert result["birth_place_city"] == "Cincinnati"
-    assert result["birth_place_state"] == "Ohio"
-    assert result["birth_place_country_iso"] == "U.S."
+    assert result["birth_place_city"] == "cincinnati"
+    assert result["birth_place_state"] == "ohio"
+    assert result["birth_place_country_iso"] == "usa"
     assert result["active_since_year"] == "2012"
     assert result["is_currently_active"] is True
-    assert result["ethnicity"] == "White"
-    assert result["nationality"] == "American"
+    assert result["ethnicity"] == "white"
+    assert result["nationality"] == "usa"
 
 
 def test_parse_boobpedia_converts_height_and_weight():
     result = parse_pasted_bio("boobpedia", BOOBPEDIA_SAMPLE)
     assert result["height_cm"] == "170"
     assert result["weight_kg"] == "48"
-    assert result["body_type"] == "Slim"
-    assert result["eye_color"] == "Brown"
+    assert result["body_type"] == "slim"
+    assert result["eye_color"] == "brown"
+
+
+def test_parse_boobpedia_normalizes_enhanced_boobs_type():
+    result = parse_pasted_bio("boobpedia", BOOBPEDIA_SAMPLE)
+    assert result["boobs_type"] == "enhanced"
 
 
 def test_parse_pornopedia_extracts_core_fields():
@@ -117,11 +123,11 @@ def test_parse_pornopedia_extracts_core_fields():
     assert result["birth_year"] == "1993"
     assert result["birth_month"] == "5"
     assert result["birth_day"] == "9"
-    assert result["birth_place_state"] == "Ohio"
-    assert result["birth_place_country_iso"] == "United States"
+    assert result["birth_place_state"] == "ohio"
+    assert result["birth_place_country_iso"] == "usa"
     assert result["height_cm"] == "170"
     assert result["weight_kg"] == "48"
-    assert result["ethnicity"] == "Italian, German, Polish, Jewish"
+    assert result["ethnicity"] == "italian, german, polish, jewish"
     assert result["number_videos"] == "273"
     assert result["number_videos_is_lower_bound"] is True
 
@@ -138,6 +144,19 @@ def test_parse_empty_text_returns_empty_dict():
 def test_parse_babepedia_missing_fields_are_simply_absent():
     minimal = "Born: Monday 13th of February 1995\nHair color: Brown"
     result = parse_pasted_bio("babepedia", minimal)
-    assert result["hair_color"] == "Brown"
+    assert result["hair_color"] == "brown"
     assert "eye_color" not in result
     assert "height_cm" not in result
+
+
+def test_country_name_maps_to_iso3_unknown_falls_back_to_lowercase():
+    text = "Birthplace: Wakanda"
+    result = parse_pasted_bio("babepedia", text)
+    # Unbekanntes Land: kein Code geraten, aber konsistent lowercase.
+    assert result["birth_place_country_iso"] == "wakanda"
+
+
+def test_boobs_type_natural_stays_natural():
+    text = "Boobs: Natural"
+    result = parse_pasted_bio("babepedia", text)
+    assert result["boobs_type"] == "natural"

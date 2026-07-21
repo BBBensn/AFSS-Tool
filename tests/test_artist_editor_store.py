@@ -66,13 +66,45 @@ def test_artist_from_form_parses_types_correctly():
     tags = entry["default_tags"]
     assert tags["birth_date"] == "1995-05-20"
     assert tags["occupation"] == ["actress", "model"]
-    assert tags["birth_place"] == {"city": "Vienna", "state": "", "country_iso": "aut"}
+    # Freitext-Attribute werden konsequent lowercase gespeichert (Vienna -> vienna),
+    # passend zur bestehenden artists.json-Konvention.
+    assert tags["birth_place"] == {"city": "vienna", "state": "", "country_iso": "aut"}
     assert tags["body_measurements_cm"] == {"bust_cm": "90", "waist_cm": "60", "hips_cm": "88"}
+    assert tags["bra_size_eu"] == "75b"
     assert tags["number_videos"] == 42
     assert tags["number_videos_is_lower_bound"] is True
     assert tags["active_since_year"] == 2020
     assert tags["active_until_year"] is None
     assert tags["is_currently_active"] is True
+
+
+def test_artist_from_form_lowercases_freetext_attributes_but_not_proper_nouns():
+    form = MultiDict(
+        {
+            "canonical_name": "Some Artist",
+            "aliases": "Some Alias, ANOTHER Alias",
+            "real_name": "Jane Doe",
+            "notes": "Written As Typed",
+            "gender_identity": "Female",
+            "ethnicity": "Caucasian",
+            "hair_color": "Brown",
+            "body_type": "SLIM",
+        }
+    )
+    entry = artist_from_form(form)
+
+    # Eigennamen/Freitext bleiben unangetastet:
+    assert entry["canonical_name"] == "Some Artist"
+    assert entry["aliases"] == ["Some Alias", "ANOTHER Alias"]
+    assert entry["real_name"] == "Jane Doe"
+    assert entry["notes"] == "Written As Typed"
+
+    # Attribut-Felder werden lowercase erzwungen:
+    tags = entry["default_tags"]
+    assert tags["gender_identity"] == "female"
+    assert tags["ethnicity"] == "caucasian"
+    assert tags["hair_color"] == "brown"
+    assert tags["body_type"] == "slim"
 
 
 def test_artist_from_form_defaults_unchecked_boxes_to_false():

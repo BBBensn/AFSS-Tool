@@ -1,6 +1,9 @@
 """Parst Bio-Text, den der Nutzer manuell von Babepedia/Boobpedia/Pornopedia kopiert und
 einfügt - komplett offline, es wird nichts selbst abgerufen. Gibt ein flaches dict zurück,
-dessen Keys exakt den Formularfeld-Namen entsprechen (siehe artist_form.html)."""
+dessen Keys exakt den Formularfeld-Namen entsprechen (siehe artist_form.html).
+
+Werte werden konsistent zur bestehenden artists.json-Konvention normalisiert:
+lowercase Freitext, Land/Nationalität als ISO-3166-1-alpha-3-Code (lowercase)."""
 
 import re
 
@@ -11,6 +14,76 @@ _MONTHS = {
     "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
 }
 
+# Länder-/Nationalitätsnamen, wie sie auf den Wiki-Seiten typischerweise stehen,
+# auf ISO-3166-1-alpha-3 (lowercase, passend zur bestehenden artists.json-Konvention
+# wie z.B. "can" für Kanada). Nicht erschöpfend - unbekannte Werte bleiben roh (lowercase)
+# stehen, damit nichts verloren geht, auch wenn es kein Code wird.
+_COUNTRY_ISO3 = {
+    "united states": "usa", "us": "usa", "usa": "usa", "america": "usa", "american": "usa",
+    "canada": "can", "canadian": "can",
+    "united kingdom": "gbr", "uk": "gbr", "england": "gbr", "britain": "gbr",
+    "great britain": "gbr", "scotland": "gbr", "wales": "gbr",
+    "british": "gbr", "english": "gbr", "scottish": "gbr", "welsh": "gbr",
+    "russia": "rus", "russian federation": "rus", "russian": "rus",
+    "ukraine": "ukr", "ukrainian": "ukr",
+    "czech republic": "cze", "czechia": "cze", "czech": "cze",
+    "hungary": "hun", "hungarian": "hun",
+    "germany": "deu", "german": "deu",
+    "france": "fra", "french": "fra",
+    "italy": "ita", "italian": "ita",
+    "spain": "esp", "spanish": "esp",
+    "poland": "pol", "polish": "pol",
+    "romania": "rou", "romanian": "rou",
+    "colombia": "col", "colombian": "col",
+    "brazil": "bra", "brazilian": "bra",
+    "argentina": "arg", "argentinian": "arg", "argentine": "arg",
+    "mexico": "mex", "mexican": "mex",
+    "australia": "aus", "australian": "aus",
+    "japan": "jpn", "japanese": "jpn",
+    "netherlands": "nld", "holland": "nld", "dutch": "nld",
+    "belgium": "bel", "belgian": "bel",
+    "sweden": "swe", "swedish": "swe",
+    "norway": "nor", "norwegian": "nor",
+    "denmark": "dnk", "danish": "dnk",
+    "finland": "fin", "finnish": "fin",
+    "switzerland": "che", "swiss": "che",
+    "austria": "aut", "austrian": "aut",
+    "portugal": "prt", "portuguese": "prt",
+    "greece": "grc", "greek": "grc",
+    "turkey": "tur", "turkish": "tur",
+    "israel": "isr", "israeli": "isr",
+    "south africa": "zaf", "south african": "zaf",
+    "china": "chn", "chinese": "chn",
+    "south korea": "kor", "korea": "kor", "korean": "kor",
+    "thailand": "tha", "thai": "tha",
+    "philippines": "phl", "filipino": "phl", "filipina": "phl",
+    "india": "ind", "indian": "ind",
+    "venezuela": "ven", "venezuelan": "ven",
+    "chile": "chl", "chilean": "chl",
+    "peru": "per", "peruvian": "per",
+    "cuba": "cub", "cuban": "cub",
+    "dominican republic": "dom", "dominican": "dom",
+    "puerto rico": "pri",
+    "serbia": "srb", "serbian": "srb",
+    "croatia": "hrv", "croatian": "hrv",
+    "slovakia": "svk", "slovak": "svk",
+    "slovenia": "svn", "slovenian": "svn",
+    "bulgaria": "bgr", "bulgarian": "bgr",
+    "belarus": "blr", "belarusian": "blr",
+    "latvia": "lva", "latvian": "lva",
+    "lithuania": "ltu", "lithuanian": "ltu",
+    "estonia": "est", "estonian": "est",
+    "ireland": "irl", "irish": "irl",
+    "new zealand": "nzl", "new zealander": "nzl", "kiwi": "nzl",
+}
+
+_LOWERCASE_STRING_KEYS = {
+    "gender_identity", "sex_assigned_at_birth", "nationality", "ethnicity",
+    "hair_color", "eye_color", "body_type", "boobs_type", "priority",
+    "birth_place_city", "birth_place_state", "birth_place_country_iso",
+}
+_LOWERCASE_LIST_KEYS = {"occupation", "pierce_locations", "artist_tags"}
+
 
 def _strip_footnotes(s: str) -> str:
     return re.sub(r"\[\d+\]", "", s).strip()
@@ -19,6 +92,23 @@ def _strip_footnotes(s: str) -> str:
 def _search(pattern: str, text: str) -> str:
     m = re.search(pattern, text, re.I)
     return _strip_footnotes(m.group(1)) if m else ""
+
+
+def _to_iso3(name: str) -> str:
+    if not name:
+        return ""
+    key = re.sub(r"\.", "", name.strip().lower())
+    key = re.sub(r"\s+", " ", key).strip()
+    return _COUNTRY_ISO3.get(key, key)
+
+
+def _normalize_boobs_type(value: str) -> str:
+    v = value.lower()
+    if "natural" in v:
+        return "natural"
+    if "fake" in v or "enhanced" in v or "implant" in v:
+        return "enhanced"
+    return v
 
 
 def _extract_height_cm(s: str) -> str:
@@ -292,8 +382,26 @@ _PARSERS = {
 }
 
 
+def _normalize_result(result: dict) -> dict:
+    for key in _LOWERCASE_STRING_KEYS:
+        if key in result and isinstance(result[key], str):
+            result[key] = result[key].lower()
+    for key in _LOWERCASE_LIST_KEYS:
+        if key in result and isinstance(result[key], list):
+            result[key] = [v.lower() for v in result[key]]
+
+    if result.get("birth_place_country_iso"):
+        result["birth_place_country_iso"] = _to_iso3(result["birth_place_country_iso"])
+    if result.get("nationality"):
+        result["nationality"] = _to_iso3(result["nationality"])
+    if result.get("boobs_type"):
+        result["boobs_type"] = _normalize_boobs_type(result["boobs_type"])
+
+    return result
+
+
 def parse_pasted_bio(source: str, text: str) -> dict:
     parser = _PARSERS.get(source)
     if parser is None or not text.strip():
         return {}
-    return parser(text)
+    return _normalize_result(parser(text))
