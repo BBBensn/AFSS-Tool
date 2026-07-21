@@ -11,3 +11,7 @@ afss.db
 **/mapping.json
 *.mapping.json
 plan_*.csv
+
+# echte Profile verraten Laufwerksnamen + Ordnerkategorien -> lokal halten,
+# config/legacy_profiles.example.yml ist die getrackte Vorlage
+config/legacy_profiles.yml
