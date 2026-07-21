@@ -23,9 +23,32 @@ def resolve_profile(profile_id: str, db_path: Path | None = None) -> dict:
     unresolved = {}  # (folder_name, level) -> {"count": int, "sample_path": str}
 
     for item_id, folder_level1, folder_level2 in items:
-        artist_id = artist_by_alias.get(normalize_name(folder_level1)) if folder_level1 else None
-        provider_id = provider_by_alias.get(normalize_name(folder_level2)) if folder_level2 else None
-        collection_name = folder_level2 if (folder_level2 and provider_id is None) else None
+        norm1 = normalize_name(folder_level1) if folder_level1 else None
+        norm2 = normalize_name(folder_level2) if folder_level2 else None
+
+        level1_is_artist = norm1 is not None and norm1 in artist_by_alias
+        level1_is_provider = norm1 is not None and norm1 in provider_by_alias
+        level2_is_artist = norm2 is not None and norm2 in artist_by_alias
+        level2_is_provider = norm2 is not None and norm2 in provider_by_alias
+
+        # Manche Platten sind artist-first (level1=Artist), manche category-first
+        # (level1=Kategorie, level2=Artist) - daher beide Ebenen für beide Rollen probieren.
+        # level1 hat Vorrang für Artist, level2 für Provider (üblichere Reihenfolge).
+        if level1_is_artist:
+            artist_id = artist_by_alias[norm1]
+        elif level2_is_artist:
+            artist_id = artist_by_alias[norm2]
+        else:
+            artist_id = None
+
+        if level2_is_provider:
+            provider_id = provider_by_alias[norm2]
+        elif level1_is_provider:
+            provider_id = provider_by_alias[norm1]
+        else:
+            provider_id = None
+
+        collection_name = folder_level2 if (folder_level2 and not level2_is_artist and not level2_is_provider) else None
 
         cur.execute(
             "UPDATE media_items SET artist_id = ?, provider_id = ?, collection_name = ? WHERE id = ?",
@@ -34,12 +57,13 @@ def resolve_profile(profile_id: str, db_path: Path | None = None) -> dict:
 
         if artist_id:
             resolved_count += 1
-        elif folder_level1:
+
+        if folder_level1 and not level1_is_artist and not level1_is_provider:
             key = (folder_level1, 1)
             entry = unresolved.setdefault(key, {"count": 0, "sample_path": folder_level1})
             entry["count"] += 1
 
-        if folder_level2 and provider_id is None:
+        if folder_level2 and not level2_is_artist and not level2_is_provider:
             key = (folder_level2, 2)
             entry = unresolved.setdefault(key, {"count": 0, "sample_path": folder_level2})
             entry["count"] += 1

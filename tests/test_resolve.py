@@ -61,6 +61,44 @@ def test_resolve_matches_known_aliases_and_flags_unknown(tmp_path):
     conn.close()
 
 
+def test_resolve_falls_back_to_level2_for_category_first_drives(tmp_path):
+    """Manche Platten sind category-first (level1=Kategorie, level2=Artist) statt artist-first."""
+    root = tmp_path / "fake_root"
+    (root / "_Category" / "Artist Two").mkdir(parents=True)
+    (root / "_Category" / "Artist Two" / "clip.mp4").write_bytes(b"x")
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "legacy_profiles.yml").write_text(
+        yaml.safe_dump({"profiles": [{"id": "cat_profile", "root_path": str(root), "enabled": True}]}),
+        encoding="utf-8",
+    )
+    (config_dir / "artists.json").write_text(
+        json.dumps({"artists": [{"id": "artist_2", "canonical_name": "Artist Two", "aliases": []}]}),
+        encoding="utf-8",
+    )
+    (config_dir / "providers.json").write_text(json.dumps({"providers": []}), encoding="utf-8")
+
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    migrate_legacy_json(config_dir, db_path)
+    scan_profile("cat_profile", config_dir, db_path)
+
+    result = resolve_profile("cat_profile", db_path)
+
+    assert result["resolved"] == 1
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id, collection_name FROM media_items WHERE filename = 'clip.mp4'")
+    assert cur.fetchone() == ("artist_2", None)
+    cur.execute("SELECT status FROM unresolved_folders WHERE folder_name = '_Category'")
+    assert cur.fetchone() == ("pending",)
+    cur.execute("SELECT COUNT(*) FROM unresolved_folders WHERE folder_name = 'Artist Two'")
+    assert cur.fetchone()[0] == 0
+    conn.close()
+
+
 def test_resolve_is_idempotent_and_preserves_manual_status(tmp_path):
     _setup(tmp_path)
     db_path = tmp_path / "test.db"
