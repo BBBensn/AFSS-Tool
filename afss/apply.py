@@ -34,6 +34,7 @@ def apply_profile(profile_id: str, target_dir: Path, db_path: Path | None = None
         FROM media_items m
         LEFT JOIN artists a ON a.id = m.artist_id
         WHERE m.profile_id = ? AND m.needs_review = 0 AND m.planned_filename IS NOT NULL AND m.verified = 0
+              AND m.item_status != 'trash'
         """,
         (profile_id,),
     )

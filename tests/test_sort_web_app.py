@@ -196,18 +196,115 @@ def test_bulk_clear_override_resets_flag(tmp_path):
     conn.close()
 
 
-def test_titles_saves_title_override(tmp_path):
+def test_details_saves_title_and_tags(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)
     app = create_app("p1", tmp_path / "config", db_path)
     client = app.test_client()
 
-    resp = client.post("/sort/p1/titles", data={"title_1": "Neuer Titel"}, follow_redirects=True)
+    resp = client.post(
+        "/sort/p1/details",
+        data={"title_1": "Neuer Titel", "tags_1": "solo, pov"},
+        follow_redirects=True,
+    )
 
     assert resp.status_code == 200
-    assert "1 Titel gespeichert".encode() in resp.data
+    assert "1 Titel, 1 Tag-Felder gespeichert".encode() in resp.data
     conn = get_connection(db_path)
     cur = conn.cursor()
-    cur.execute("SELECT title_override FROM media_items WHERE id = 1")
-    assert cur.fetchone() == ("Neuer Titel",)
+    cur.execute("SELECT title_override, tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("Neuer Titel", "solo, pov")
+    conn.close()
+
+
+def test_bulk_set_status_marks_trash(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk", data={"item_id": ["1"], "action": "set_status", "item_status": "trash"}, follow_redirects=True
+    )
+
+    assert "auf Status".encode() in resp.data and "gesetzt".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT item_status FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("trash",)
+    conn.close()
+
+
+def test_bulk_add_tags_appends_without_duplicates(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'solo' WHERE id = 1")
+    conn.commit()
+    conn.close()
+
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    client.post("/sort/p1/bulk", data={"item_id": ["1"], "action": "add_tags", "new_tags": "solo, pov"})
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("solo, pov",)
+    conn.close()
+
+
+def test_bulk_add_co_artist_creates_db_row_from_json_and_links(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    (config_dir / "artists.json").write_text(
+        json.dumps(
+            {
+                "artists": [
+                    {"id": "artist_1", "canonical_name": "Artist One", "aliases": []},
+                    {"id": "artist_2", "canonical_name": "Artist Two", "aliases": []},
+                    {"id": "artist_co", "canonical_name": "Co Artist", "aliases": []},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "add_co_artist", "co_artist_target_id": "artist_co"},
+        follow_redirects=True,
+    )
+
+    assert "Co-Artist bei 1 Datei(en) ergänzt".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id FROM media_item_co_artists WHERE media_item_id = 1")
+    assert cur.fetchone() == ("artist_co",)
+    conn.close()
+
+
+def test_remove_co_artist_route_deletes_link(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO media_item_co_artists(media_item_id, artist_id) VALUES (1, 'artist_2')")
+    conn.commit()
+    conn.close()
+
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    client.post("/sort/p1/remove-co-artist/1/artist_2")
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM media_item_co_artists")
+    assert cur.fetchone()[0] == 0
     conn.close()

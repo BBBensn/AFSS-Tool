@@ -38,6 +38,24 @@ def test_apply_nests_collection_as_subfolder(tmp_path):
     assert dest.exists()
 
 
+def test_apply_excludes_items_marked_as_trash(tmp_path):
+    db_path = tmp_path / "test.db"
+    source = tmp_path / "source" / "clip.mp4"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"video content")
+    _seed(db_path, source)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET item_status = 'trash' WHERE filename = 'clip.mp4'")
+    conn.commit()
+    conn.close()
+
+    result = apply_profile("p1", tmp_path / "target", db_path)
+
+    assert result["copied"] == 0
+    assert result["candidates"] == 0
+
+
 def test_apply_copies_and_verifies(tmp_path):
     db_path = tmp_path / "test.db"
     source = tmp_path / "source" / "clip.mp4"

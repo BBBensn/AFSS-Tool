@@ -2,7 +2,17 @@ from pathlib import Path
 
 from flask import Blueprint, Flask, flash, jsonify, redirect, render_template, request, url_for
 
-from afss.sort_studio import bulk_update, clear_manual_override, get_profile_tree, save_title_overrides
+from afss.sort_studio import (
+    add_co_artist,
+    add_tags,
+    bulk_update,
+    clear_manual_override,
+    get_profile_tree,
+    remove_co_artist,
+    save_tags,
+    save_title_overrides,
+    set_item_status,
+)
 from afss.tagging import search_json_entities
 
 
@@ -53,25 +63,53 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         elif action == "clear_override":
             n = clear_manual_override(item_ids, db_path)
             flash(f"{n} Datei(en) auf automatische Zuordnung zurückgesetzt (nächster Resolve-Lauf greift wieder).", "ok")
+        elif action == "set_status":
+            status = request.form.get("item_status", "").strip()
+            n = set_item_status(item_ids, status, db_path)
+            if n:
+                flash(f"{n} Datei(en) auf Status '{status}' gesetzt.", "ok")
+            else:
+                flash("Unbekannter Status.", "error")
+        elif action == "add_co_artist":
+            target_id = request.form.get("co_artist_target_id", "").strip()
+            if not target_id:
+                flash("Bitte zuerst einen Co-Artist auswählen.", "error")
+            else:
+                n = add_co_artist(item_ids, target_id, db_path, config_dir)
+                flash(f"Co-Artist bei {n} Datei(en) ergänzt.", "ok")
+        elif action == "add_tags":
+            new_tags = [t for t in request.form.get("new_tags", "").split(",")]
+            n = add_tags(item_ids, new_tags, db_path)
+            flash(f"Tags bei {n} Datei(en) ergänzt.", "ok")
         else:
             flash(f"Unbekannte Aktion: {action}", "error")
 
         return redirect(url_for("sort.index", profile_id=profile_id))
 
-    @bp.route("/<profile_id>/titles", methods=["POST"])
-    def titles(profile_id: str):
-        values = {}
-        prefix = "title_"
+    @bp.route("/<profile_id>/details", methods=["POST"])
+    def details(profile_id: str):
+        titles = {}
+        tags = {}
         for key, value in request.form.items():
-            if key.startswith(prefix):
+            if key.startswith("title_"):
                 try:
-                    item_id = int(key[len(prefix):])
+                    titles[int(key[len("title_"):])] = value
                 except ValueError:
                     continue
-                values[item_id] = value
+            elif key.startswith("tags_"):
+                try:
+                    tags[int(key[len("tags_"):])] = value
+                except ValueError:
+                    continue
 
-        n = save_title_overrides(values, db_path)
-        flash(f"{n} Titel gespeichert.", "ok")
+        n_titles = save_title_overrides(titles, db_path)
+        n_tags = save_tags(tags, db_path)
+        flash(f"{n_titles} Titel, {n_tags} Tag-Felder gespeichert.", "ok")
+        return redirect(url_for("sort.index", profile_id=profile_id))
+
+    @bp.route("/<profile_id>/remove-co-artist/<int:item_id>/<artist_id>", methods=["POST"])
+    def remove_co_artist_route(profile_id: str, item_id: int, artist_id: str):
+        remove_co_artist(item_id, artist_id, db_path)
         return redirect(url_for("sort.index", profile_id=profile_id))
 
     return bp

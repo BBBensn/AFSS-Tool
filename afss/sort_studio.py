@@ -5,6 +5,7 @@ from afss.tagging import get_json_canonical_name
 
 _ALLOWED_BULK_FIELDS = {"artist_id", "provider_id", "collection_name"}
 _TABLE_BY_FIELD = {"artist_id": ("artists", "artist"), "provider_id": ("providers", "provider")}
+_ALLOWED_ITEM_STATUS = {"active", "trash", "extra"}
 
 
 def _ensure_entity_in_db(cur, field: str, entity_id: str, config_dir: Path) -> None:
@@ -30,7 +31,8 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
     cur.execute(
         """
         SELECT m.id, m.filename, m.rel_path, m.media_type, m.artist_id, a.canonical_name,
-               m.provider_id, p.canonical_name, m.collection_name, m.title_override, m.manual_override
+               m.provider_id, p.canonical_name, m.collection_name, m.title_override, m.manual_override,
+               m.item_status, m.tags
         FROM media_items m
         LEFT JOIN artists a ON a.id = m.artist_id
         LEFT JOIN providers p ON p.id = m.provider_id
@@ -41,12 +43,31 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
         (profile_id,),
     )
     rows = cur.fetchall()
+
+    item_ids = [r[0] for r in rows]
+    co_artists_by_item: dict[int, list[dict]] = {}
+    if item_ids:
+        placeholders = ",".join("?" for _ in item_ids)
+        cur.execute(
+            f"""
+            SELECT mca.media_item_id, a.id, a.canonical_name
+            FROM media_item_co_artists mca
+            JOIN artists a ON a.id = mca.artist_id
+            WHERE mca.media_item_id IN ({placeholders})
+            ORDER BY a.canonical_name
+            """,
+            item_ids,
+        )
+        for item_id, co_artist_id, name in cur.fetchall():
+            co_artists_by_item.setdefault(item_id, []).append({"id": co_artist_id, "name": name})
+
     conn.close()
 
     artists: dict[str, dict] = {}
     for (
         item_id, filename, rel_path, media_type, artist_id, artist_name,
         provider_id, provider_name, collection_name, title_override, manual_override,
+        item_status, tags,
     ) in rows:
         artist_key = artist_id or "_unresolved"
         artist_entry = artists.setdefault(
@@ -65,6 +86,9 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
                 "provider_name": provider_name,
                 "title_override": title_override,
                 "manual_override": bool(manual_override),
+                "item_status": item_status or "active",
+                "tags": tags or "",
+                "co_artists": co_artists_by_item.get(item_id, []),
             }
         )
 
@@ -134,3 +158,95 @@ def save_title_overrides(values: dict[int, str], db_path: Path | None = None) ->
     conn.commit()
     conn.close()
     return updated
+
+
+def save_tags(values: dict[int, str], db_path: Path | None = None) -> int:
+    """values: {item_id: neue_tags_als_kommaliste}. Ersetzt die Tags der jeweiligen Datei komplett
+    (im Gegensatz zu add_tags, das für Bulk-Ergänzung gedacht ist)."""
+    if not values:
+        return 0
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    updated = 0
+    for item_id, tags in values.items():
+        cur.execute("UPDATE media_items SET tags = ? WHERE id = ?", (tags.strip() or None, item_id))
+        updated += cur.rowcount
+    conn.commit()
+    conn.close()
+    return updated
+
+
+def add_tags(item_ids: list[int], new_tags: list[str], db_path: Path | None = None) -> int:
+    """Ergänzt die gegebenen Tags bei mehreren Dateien auf einmal, ohne bereits vorhandene
+    individuelle Tags zu überschreiben (dedupliziert pro Datei)."""
+    new_tags = [t.strip() for t in new_tags if t.strip()]
+    if not new_tags or not item_ids:
+        return 0
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    placeholders = ",".join("?" for _ in item_ids)
+    cur.execute(f"SELECT id, tags FROM media_items WHERE id IN ({placeholders})", item_ids)
+    rows = cur.fetchall()
+    updated = 0
+    for item_id, existing_tags in rows:
+        current = [t.strip() for t in (existing_tags or "").split(",") if t.strip()]
+        for tag in new_tags:
+            if tag not in current:
+                current.append(tag)
+        cur.execute("UPDATE media_items SET tags = ? WHERE id = ?", (", ".join(current), item_id))
+        updated += 1
+    conn.commit()
+    conn.close()
+    return updated
+
+
+def set_item_status(item_ids: list[int], status: str, db_path: Path | None = None) -> int:
+    """Markiert Dateien als 'trash' (wird von plan/apply automatisch ausgeschlossen), 'extra'
+    (z.B. Behind-the-Scenes-Fotos, die man behalten aber nicht wie normale Clips einsortieren
+    will) oder 'active' (Standard, zurücksetzen). Löscht nichts - reines Ausschluss-Flag,
+    tatsächliches Löschen bleibt ein separater, expliziter Schritt."""
+    if status not in _ALLOWED_ITEM_STATUS or not item_ids:
+        return 0
+    placeholders = ",".join("?" for _ in item_ids)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(f"UPDATE media_items SET item_status = ? WHERE id IN ({placeholders})", (status, *item_ids))
+    updated = cur.rowcount
+    conn.commit()
+    conn.close()
+    return updated
+
+
+def add_co_artist(
+    item_ids: list[int], artist_id: str, db_path: Path | None = None, config_dir: Path | None = None
+) -> int:
+    """Verknüpft mehrere Dateien zusätzlich mit einem weiteren Artist (Coop/Feature), ohne den
+    Hauptartist (artist_id) zu ändern - der bestimmt weiterhin den Zielordner bei apply."""
+    if not artist_id or not item_ids:
+        return 0
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    if config_dir is not None:
+        _ensure_entity_in_db(cur, "artist_id", artist_id, config_dir)
+    added = 0
+    for item_id in item_ids:
+        cur.execute(
+            "INSERT OR IGNORE INTO media_item_co_artists(media_item_id, artist_id) VALUES (?, ?)",
+            (item_id, artist_id),
+        )
+        added += cur.rowcount
+    conn.commit()
+    conn.close()
+    return added
+
+
+def remove_co_artist(item_id: int, artist_id: str, db_path: Path | None = None) -> int:
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "DELETE FROM media_item_co_artists WHERE media_item_id = ? AND artist_id = ?", (item_id, artist_id)
+    )
+    removed = cur.rowcount
+    conn.commit()
+    conn.close()
+    return removed

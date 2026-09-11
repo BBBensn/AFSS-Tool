@@ -48,10 +48,12 @@
   details.artist > summary { padding: 0.5rem 0.8rem; cursor: pointer; font-weight: 600; background: var(--th-bg); }
   details.collection { margin: 0.4rem 0.8rem; border-left: 2px solid var(--border); }
   details.collection > summary { padding: 0.3rem 0.5rem; cursor: pointer; color: var(--muted); font-size: 0.9rem; }
-  .item-row { display: grid; grid-template-columns: auto 1fr 12rem; gap: 0.6rem; align-items: center;
+  .item-row { display: grid; grid-template-columns: auto 1fr 9rem 9rem; gap: 0.6rem; align-items: center;
     padding: 0.3rem 0.5rem 0.3rem 1.5rem; border-top: 1px solid var(--border); }
   .item-row .filename { font-size: 0.9rem; }
   .item-row .rel-path { font-size: 0.75rem; color: var(--muted); }
+  .remove-co-artist { cursor: pointer; margin-left: 0.2rem; }
+  .remove-co-artist:hover { color: var(--fg); }
   .item-row .manual-badge { font-size: 0.7rem; color: var(--muted); border: 1px solid var(--border); border-radius: 3px;
     padding: 0 0.3rem; margin-left: 0.4rem; }
   .item-row input[type=text] { width: 100%; }
@@ -101,7 +103,31 @@
       Override aufheben
     </button>
 
-    <button type="submit" formaction="{{ url_for('sort.titles', profile_id=profile_id) }}">Titel speichern</button>
+    <div class="field">
+      <label for="status-select">Auswahl → Status</label>
+      <select id="status-select" name="item_status">
+        <option value="active">Aktiv (normal)</option>
+        <option value="trash">Papierkorb (bei plan/apply ignoriert)</option>
+        <option value="extra">Extra (behalten, nicht einsortieren)</option>
+      </select>
+    </div>
+    <button type="submit" name="action" value="set_status" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Status setzen</button>
+
+    <div class="field">
+      <label for="co-artist-search">Auswahl → Co-Artist hinzufügen</label>
+      <input type="text" id="co-artist-search" autocomplete="off" placeholder="Artist suchen...">
+      <input type="hidden" name="co_artist_target_id" id="co-artist-target-id">
+      <div class="search-results" id="co-artist-results"></div>
+    </div>
+    <button type="submit" name="action" value="add_co_artist" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Co-Artist hinzufügen</button>
+
+    <div class="field">
+      <label for="new-tags-input">Auswahl → Tags hinzufügen</label>
+      <input type="text" id="new-tags-input" name="new_tags" placeholder="tag1, tag2...">
+    </div>
+    <button type="submit" name="action" value="add_tags" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Tags hinzufügen</button>
+
+    <button type="submit" formaction="{{ url_for('sort.details', profile_id=profile_id) }}">Titel &amp; Tags speichern</button>
   </div>
 
   {% for artist_key, artist in artists.items() %}
@@ -118,10 +144,17 @@
             {{ item.filename }}
             {% if item.manual_override %}<span class="manual-badge">manuell</span>{% endif %}
             {% if item.provider_name %}<span class="manual-badge">{{ item.provider_name }}</span>{% endif %}
+            {% if item.item_status != "active" %}<span class="manual-badge">{{ item.item_status }}</span>{% endif %}
+            {% for co in item.co_artists %}
+              <span class="manual-badge">+ {{ co.name }}
+                <span class="remove-co-artist" data-item="{{ item.id }}" data-artist="{{ co.id }}" title="entfernen">×</span>
+              </span>
+            {% endfor %}
           </div>
           <div class="rel-path">{{ item.rel_path }}</div>
         </div>
         <input type="text" name="title_{{ item.id }}" placeholder="Titel-Override..." value="{{ item.title_override or '' }}">
+        <input type="text" name="tags_{{ item.id }}" placeholder="Tags (kommasepariert)..." value="{{ item.tags }}">
       </div>
       {% endfor %}
     </details>
@@ -172,6 +205,18 @@ function setupSearch(inputId, resultsId, hiddenId, kind) {
 
 setupSearch('artist-search', 'artist-results', 'artist-target-id', 'artist');
 setupSearch('provider-search', 'provider-results', 'provider-target-id', 'provider');
+setupSearch('co-artist-search', 'co-artist-results', 'co-artist-target-id', 'artist');
+
+const REMOVE_CO_ARTIST_URL_TEMPLATE = '{{ url_for("sort.remove_co_artist_route", profile_id=profile_id, item_id=999999999, artist_id="__ARTIST__") }}';
+document.querySelectorAll('.remove-co-artist').forEach(function (el) {
+  el.addEventListener('click', function () {
+    if (!confirm('Co-Artist von dieser Datei entfernen?')) return;
+    const url = REMOVE_CO_ARTIST_URL_TEMPLATE
+      .replace('999999999', el.dataset.item)
+      .replace('__ARTIST__', encodeURIComponent(el.dataset.artist));
+    fetch(url, { method: 'POST' }).then(function () { location.reload(); });
+  });
+});
 
 document.getElementById('filter-input').addEventListener('input', function () {
   const q = this.value.trim().toLowerCase();

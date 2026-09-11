@@ -52,7 +52,7 @@ def plan_profile(profile_id: str, config_dir: Path, db_path: Path | None = None)
     cur.execute(
         """
         SELECT id, media_type, ext, filename, artist_id, provider_id, fs_created_at, title_override
-        FROM media_items WHERE profile_id = ?
+        FROM media_items WHERE profile_id = ? AND item_status != 'trash'
         """,
         (profile_id,),
     )

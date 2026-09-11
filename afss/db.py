@@ -105,6 +105,12 @@ CREATE TABLE IF NOT EXISTS dedupe_group_members(
     media_item_id INTEGER REFERENCES media_items(id),
     action TEXT DEFAULT 'pending'
 );
+
+CREATE TABLE IF NOT EXISTS media_item_co_artists(
+    media_item_id INTEGER REFERENCES media_items(id),
+    artist_id TEXT REFERENCES artists(id),
+    PRIMARY KEY (media_item_id, artist_id)
+);
 """
 
 
@@ -143,6 +149,10 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         cur.execute("ALTER TABLE media_items ADD COLUMN manual_override INTEGER DEFAULT 0")
     if "title_override" not in columns:
         cur.execute("ALTER TABLE media_items ADD COLUMN title_override TEXT")
+    if "item_status" not in columns:
+        cur.execute("ALTER TABLE media_items ADD COLUMN item_status TEXT DEFAULT 'active'")
+    if "tags" not in columns:
+        cur.execute("ALTER TABLE media_items ADD COLUMN tags TEXT")
 
 
 def init_schema(db_path: Path | None = None) -> None:

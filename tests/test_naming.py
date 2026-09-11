@@ -88,6 +88,27 @@ def test_plan_profile_builds_filenames_and_flags_missing_artist(tmp_path):
     conn.close()
 
 
+def test_plan_profile_excludes_items_marked_as_trash(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET item_status = 'trash' WHERE filename = 'clip.mp4'")
+    conn.commit()
+    conn.close()
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "naming_template.yml").write_text(
+        yaml.safe_dump({"video": {"pattern": "{artist} - [{provider} - ]{title}"}}), encoding="utf-8"
+    )
+
+    result = plan_profile("p1", config_dir, db_path)
+
+    assert result["total"] == 1
+    assert all(r["old_filename"] != "clip.mp4" for r in result["ready"] + result["needs_review"])
+
+
 def test_plan_profile_prefers_title_override_over_filename(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

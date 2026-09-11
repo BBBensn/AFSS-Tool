@@ -1,5 +1,17 @@
+import json
+
 from afss.db import get_connection, init_schema
-from afss.sort_studio import bulk_update, clear_manual_override, get_profile_tree, save_title_overrides
+from afss.sort_studio import (
+    add_co_artist,
+    add_tags,
+    bulk_update,
+    clear_manual_override,
+    get_profile_tree,
+    remove_co_artist,
+    save_tags,
+    save_title_overrides,
+    set_item_status,
+)
 
 
 def _seed(db_path):
@@ -114,6 +126,157 @@ def test_clear_manual_override_resets_flag_only(tmp_path):
     cur = conn.cursor()
     cur.execute("SELECT artist_id, manual_override FROM media_items WHERE id = 1")
     assert cur.fetchone() == ("artist_2", 0)
+    conn.close()
+
+
+def test_set_item_status_marks_trash(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    updated = set_item_status([1, 2], "trash", db_path)
+
+    assert updated == 2
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT item_status FROM media_items WHERE id IN (1, 2)")
+    assert {r[0] for r in cur.fetchall()} == {"trash"}
+    cur.execute("SELECT item_status FROM media_items WHERE id = 3")
+    assert cur.fetchone() == ("active",)
+    conn.close()
+
+
+def test_set_item_status_rejects_unknown_status(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    assert set_item_status([1], "not_a_real_status", db_path) == 0
+
+
+def test_get_profile_tree_exposes_item_status_and_tags(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET item_status = 'extra', tags = 'bts, photo' WHERE id = 3")
+    conn.commit()
+    conn.close()
+
+    tree = get_profile_tree("p1", db_path)
+
+    item3 = next(i for i in tree["_unresolved"]["collections"]["_none"]["files"] if i["id"] == 3)
+    assert item3["item_status"] == "extra"
+    assert item3["tags"] == "bts, photo"
+
+
+def test_save_tags_replaces_and_clears(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    updated = save_tags({1: "solo, pov", 2: "  "}, db_path)
+
+    assert updated == 2
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("solo, pov",)
+    cur.execute("SELECT tags FROM media_items WHERE id = 2")
+    assert cur.fetchone() == (None,)
+    conn.close()
+
+
+def test_add_tags_merges_without_duplicating(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'solo' WHERE id = 1")
+    conn.commit()
+    conn.close()
+
+    updated = add_tags([1, 2], ["solo", "pov"], db_path)
+
+    assert updated == 2
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("solo, pov",)  # 'solo' war schon da, nicht dupliziert
+    cur.execute("SELECT tags FROM media_items WHERE id = 2")
+    assert cur.fetchone() == ("solo, pov",)  # hatte noch keine Tags, beide werden ergänzt
+    conn.close()
+
+
+def test_add_co_artist_links_without_changing_primary_artist(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    added = add_co_artist([1], "artist_2", db_path)
+
+    assert added == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("artist_1",)
+    cur.execute("SELECT artist_id FROM media_item_co_artists WHERE media_item_id = 1")
+    assert cur.fetchone() == ("artist_2",)
+    conn.close()
+
+
+def test_add_co_artist_is_idempotent(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    add_co_artist([1], "artist_2", db_path)
+    add_co_artist([1], "artist_2", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM media_item_co_artists WHERE media_item_id = 1")
+    assert cur.fetchone()[0] == 1
+    conn.close()
+
+
+def test_add_co_artist_creates_missing_db_row_from_json(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    _seed(db_path)
+    (config_dir / "artists.json").write_text(
+        json.dumps({"artists": [{"id": "artist_json_only", "canonical_name": "Melanie", "aliases": []}]}),
+        encoding="utf-8",
+    )
+
+    add_co_artist([1], "artist_json_only", db_path, config_dir)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT canonical_name FROM artists WHERE id = 'artist_json_only'")
+    assert cur.fetchone() == ("Melanie",)
+    conn.close()
+
+
+def test_get_profile_tree_includes_co_artists(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    add_co_artist([1], "artist_2", db_path)
+
+    tree = get_profile_tree("p1", db_path)
+
+    item1 = next(i for i in tree["artist_1"]["collections"]["Shoot A"]["files"] if i["id"] == 1)
+    assert item1["co_artists"] == [{"id": "artist_2", "name": "Artist Two"}]
+
+
+def test_remove_co_artist_deletes_link(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    add_co_artist([1], "artist_2", db_path)
+
+    removed = remove_co_artist(1, "artist_2", db_path)
+
+    assert removed == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM media_item_co_artists")
+    assert cur.fetchone()[0] == 0
     conn.close()
 
 

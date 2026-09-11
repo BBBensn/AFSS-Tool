@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.4.1`
+- Version: `1.5.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.4.1`
+- Aktuell: `v1.5.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -44,6 +44,8 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     (Artist/Provider/Collection/Titel), manuelle Zuordnungen überstehen künftige `resolve`-Läufe
   - `v1.4.1` — Bugfix: Artist-Editor synct jetzt auch in die DB (nicht nur JSON), Sortier-Studio-
     Suche fragt JSON statt DB ab; Bedienkomfort (Alle zu-/aufklappen, Gruppen-Auswahl, Shift-Klick)
+  - `v1.5.0` — Sortier-Studio: Dateistatus (trash/extra, von plan/apply ausgeschlossen), Tags pro
+    Datei, Co-Artists für Coop/Feature-Videos (Hauptartist bestimmt weiterhin den Zielordner)
 
 ## Changelogs & Dokumentation
 
