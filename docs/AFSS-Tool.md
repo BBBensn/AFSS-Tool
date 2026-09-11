@@ -43,21 +43,24 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   `plan`/`apply` ausgeschlossen), freie `tags` pro Datei, `media_item_co_artists` für
   Coop/Feature-Videos (Hauptartist bestimmt weiterhin den Zielordner). Unterstützt außerdem
   `profile_id="all"` für eine profilübergreifende Ansicht (gleiche Konvention wie
-  `dedupe_profile`/`apply_dedupe`) - wichtig für Artists, die über mehrere Platten verteilt sind
+  `dedupe_profile`/`apply_dedupe`) - wichtig für Artists, die über mehrere Platten verteilt sind.
+  Artist/Provider lassen sich explizit entfernen (nicht nur der Auto-Resolve-Override aufheben),
+  und `dissolve_collection()` löst einen Collection-Ordner auf (Dateien verlieren die
+  Collection-Zuordnung, der Ordnername wird stattdessen als Tag übernommen)
 
 ## Aktueller Datenstand (Momentaufnahme)
 
-Drei Profile gescannt, ca. 14.600 Media-Items insgesamt (Stand 2026-09-11):
+Vier Profile gescannt, ca. 16.000 Media-Items insgesamt (Stand 2026-09-11):
 
 | Profil | Dateien | Resolved | Offene Tag-Ordner |
 |---|---|---|---|
 | elements | 3.551 | 2.552 (72 %) | 0 |
 | untitled | 2.155 | 1.270 (59 %) | 0 |
 | my_passport | 8.870 | 6.544 (74 %) | 0 |
+| t7 | 1.445 | 155 (10,7 %) | frisch gescannt, noch zu taggen |
 
-`config/artists.json` enthält 221 Artists, `config/providers.json` 15 Provider (Stand nach dem
-v1.2.0-Backfill, siehe Changelog — vorher waren 140 Artists/2 Provider nur in der DB, nicht im
-JSON sichtbar).
+`config/artists.json` enthält 183 Artists (nach Merges/Bereinigung, siehe v1.3.0/v1.4.1-Changelogs),
+`config/providers.json` 15 Provider.
 
 ## Bekannte offene Punkte
 

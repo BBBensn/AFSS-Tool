@@ -48,6 +48,9 @@
   details.artist > summary { padding: 0.5rem 0.8rem; cursor: pointer; font-weight: 600; background: var(--th-bg); }
   details.collection { margin: 0.4rem 0.8rem; border-left: 2px solid var(--border); }
   details.collection > summary { padding: 0.3rem 0.5rem; cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+  .dissolve-btn { margin-left: 0.6rem; padding: 0.1rem 0.5rem; font-size: 0.75rem; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 4px; background: var(--btn-bg); color: var(--fg); }
+  .dissolve-btn:hover { background: var(--btn-hover); }
   .item-row { display: grid; grid-template-columns: auto 1fr 9rem 9rem; gap: 0.6rem; align-items: center;
     padding: 0.3rem 0.5rem 0.3rem 1.5rem; border-top: 1px solid var(--border); }
   .item-row .filename { font-size: 0.9rem; }
@@ -95,6 +98,8 @@
       <div class="search-results" id="artist-results"></div>
     </div>
     <button type="submit" name="action" value="set_artist" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Artist setzen</button>
+    <button type="submit" name="action" value="clear_artist" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+            onclick="return confirm('Artist-Zuordnung für die Auswahl entfernen?');">Artist entfernen</button>
 
     <div class="field">
       <label for="provider-search">Auswahl → Provider</label>
@@ -103,6 +108,8 @@
       <div class="search-results" id="provider-results"></div>
     </div>
     <button type="submit" name="action" value="set_provider" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Provider setzen</button>
+    <button type="submit" name="action" value="clear_provider" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+            onclick="return confirm('Provider-Zuordnung für die Auswahl entfernen?');">Provider entfernen</button>
 
     <div class="field">
       <label for="collection-input">Auswahl → Collection</label>
@@ -140,6 +147,10 @@
     <button type="submit" name="action" value="add_tags" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Tags hinzufügen</button>
 
     <button type="submit" formaction="{{ url_for('sort.details', profile_id=profile_id) }}">Titel &amp; Tags speichern</button>
+
+    <input type="hidden" name="dissolve_collection_name" id="dissolve-collection-name">
+    <button type="submit" id="dissolve-submit-btn" name="action" value="dissolve_collection"
+            formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" style="display:none;"></button>
   </div>
 
   {% for artist_key, artist in artists.items() %}
@@ -147,7 +158,14 @@
     <summary><input type="checkbox" class="select-scope" onclick="event.stopPropagation()"> {{ artist.artist_name }}</summary>
     {% for collection_key, collection in artist.collections.items() %}
     <details class="collection" open>
-      <summary><input type="checkbox" class="select-scope" onclick="event.stopPropagation()"> {{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})</summary>
+      <summary>
+        <input type="checkbox" class="select-scope" onclick="event.stopPropagation()">
+        {{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})
+        {% if collection.collection_name %}
+        <button type="button" class="dissolve-btn" data-collection="{{ collection.collection_name }}"
+                onclick="event.stopPropagation()">Auflösen → Tag</button>
+        {% endif %}
+      </summary>
       {% for item in collection.files %}
       <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename)|lower }}" data-profile="{{ item.profile_id }}">
         <input type="checkbox" name="item_id" value="{{ item.id }}">
@@ -228,6 +246,17 @@ document.querySelectorAll('.remove-co-artist').forEach(function (el) {
       .replace('999999999', el.dataset.item)
       .replace('__ARTIST__', encodeURIComponent(el.dataset.artist));
     fetch(url, { method: 'POST' }).then(function () { location.reload(); });
+  });
+});
+
+document.querySelectorAll('.dissolve-btn').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    const name = btn.dataset.collection;
+    if (!confirm('Collection "' + name + '" auflösen? Dateien verlieren den Unterordner, "' + name + '" wird stattdessen als Tag ergänzt.')) return;
+    const details = btn.closest('details.collection');
+    details.querySelectorAll('input[name="item_id"]').forEach(function (box) { box.checked = true; });
+    document.getElementById('dissolve-collection-name').value = name;
+    document.getElementById('dissolve-submit-btn').click();
   });
 });
 

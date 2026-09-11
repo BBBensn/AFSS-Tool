@@ -7,6 +7,7 @@ from afss.sort_studio import (
     add_tags,
     bulk_update,
     clear_manual_override,
+    dissolve_collection,
     get_profile_tree,
     remove_co_artist,
     save_tags,
@@ -65,6 +66,16 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             collection_name = request.form.get("collection_name", "").strip() or None
             n = bulk_update(item_ids, {"collection_name": collection_name}, db_path, config_dir)
             flash(f"{n} Datei(en) Collection gesetzt.", "ok")
+        elif action == "clear_artist":
+            n = bulk_update(item_ids, {"artist_id": None}, db_path, config_dir)
+            flash(f"{n} Datei(en): Artist entfernt.", "ok")
+        elif action == "clear_provider":
+            n = bulk_update(item_ids, {"provider_id": None}, db_path, config_dir)
+            flash(f"{n} Datei(en): Provider entfernt.", "ok")
+        elif action == "dissolve_collection":
+            collection_name = request.form.get("dissolve_collection_name", "")
+            n = dissolve_collection(item_ids, collection_name, db_path)
+            flash(f"{n} Datei(en): Collection aufgelöst, als Tag übernommen.", "ok")
         elif action == "clear_override":
             n = clear_manual_override(item_ids, db_path)
             flash(f"{n} Datei(en) auf automatische Zuordnung zurückgesetzt (nächster Resolve-Lauf greift wieder).", "ok")

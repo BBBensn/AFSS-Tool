@@ -6,6 +6,7 @@ from afss.sort_studio import (
     add_tags,
     bulk_update,
     clear_manual_override,
+    dissolve_collection,
     get_profile_tree,
     remove_co_artist,
     save_tags,
@@ -156,6 +157,75 @@ def test_clear_manual_override_resets_flag_only(tmp_path):
     cur.execute("SELECT artist_id, manual_override FROM media_items WHERE id = 1")
     assert cur.fetchone() == ("artist_2", 0)
     conn.close()
+
+
+def test_bulk_update_can_clear_artist_id_to_none(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    updated = bulk_update([1], {"artist_id": None}, db_path)
+
+    assert updated == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id, manual_override FROM media_items WHERE id = 1")
+    assert cur.fetchone() == (None, 1)
+    conn.close()
+
+
+def test_bulk_update_can_clear_provider_id_to_none(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    updated = bulk_update([1], {"provider_id": None}, db_path)
+
+    assert updated == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT provider_id FROM media_items WHERE id = 1")
+    assert cur.fetchone() == (None,)
+    conn.close()
+
+
+def test_dissolve_collection_clears_collection_and_adds_tag(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    updated = dissolve_collection([1, 2], "Shoot A", db_path)
+
+    assert updated == 2
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT collection_name, tags, manual_override FROM media_items WHERE id = 1")
+    assert cur.fetchone() == (None, "Shoot A", 1)
+    cur.execute("SELECT collection_name, tags FROM media_items WHERE id = 2")
+    assert cur.fetchone() == (None, "Shoot A")
+    conn.close()
+
+
+def test_dissolve_collection_preserves_existing_tags_without_duplicating(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Shoot A, solo' WHERE id = 1")
+    conn.commit()
+    conn.close()
+
+    dissolve_collection([1], "Shoot A", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("Shoot A, solo",)
+    conn.close()
+
+
+def test_dissolve_collection_noop_without_item_ids(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    assert dissolve_collection([], "Shoot A", db_path) == 0
 
 
 def test_set_item_status_marks_trash(tmp_path):

@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.6.0`
+- Version: `1.7.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.6.0`
+- Aktuell: `v1.7.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -48,6 +48,8 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     Datei, Co-Artists für Coop/Feature-Videos (Hauptartist bestimmt weiterhin den Zielordner)
   - `v1.6.0` — Sortier-Studio: profilübergreifende Ansicht (`profile_id="all"`) für Artists, die
     über mehrere Platten verteilt sind, inkl. Herkunfts-Badge und Platten-Filter
+  - `v1.7.0` — Sortier-Studio: Artist/Provider explizit entfernen, Collections auflösen (Ordner
+    → Tag); viertes Profil "T7" eingerichtet (bereits sortiert, Daten unter T7/other/)
 
 ## Changelogs & Dokumentation
 
@@ -73,7 +75,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 - ✅ Artist-Merge im Artist-Editor (v1.3.0) — doppelt angelegte Einträge sauber zusammenführen
 - ✅ Sortier-Studio (v1.4.0) — manuelle Bulk-Umsortierung (Artist/Provider/Collection/Titel) pro
   Profil im Dashboard, übersteht künftige `resolve`-Läufe
-- ⬜ Vierte Platte "T7" (bereits durchsortiert) als neues Profil in `legacy_profiles.yml` ergänzen
+- ✅ Vierte Platte "T7" als Profil eingerichtet, gescannt und resolved (2026-09-11)
 - ⬜ Erster kompletter Realdaten-Durchlauf (scan→resolve→tag→dedupe→plan→apply→transcode) für
   mindestens ein Profil bis zum Ende
 - ⬜ (Zukunftsvision, noch kein Auftrag) Dropfolder-Automatisierung: neue Dateien landen in einem

@@ -206,6 +206,35 @@ def add_tags(item_ids: list[int], new_tags: list[str], db_path: Path | None = No
     return updated
 
 
+def dissolve_collection(item_ids: list[int], collection_name: str, db_path: Path | None = None) -> int:
+    """Löst eine Collection auf: die Dateien verlieren die Collection-Zuordnung (kein
+    Unterordner mehr bei apply), der bisherige Collection-Name wird stattdessen als Tag ergänzt -
+    für Ordner, die eigentlich eher eine Kategorie sind (z.B. 'Solo', 'Anal') statt eine echte
+    Shoot-Collection. Markiert die Zeilen als manual_override, sonst würde ein späteres 'resolve'
+    die Collection aus dem Ordnernamen sofort wieder herstellen."""
+    if not item_ids:
+        return 0
+    tag = collection_name.strip()
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    placeholders = ",".join("?" for _ in item_ids)
+    cur.execute(f"SELECT id, tags FROM media_items WHERE id IN ({placeholders})", item_ids)
+    rows = cur.fetchall()
+    updated = 0
+    for item_id, existing_tags in rows:
+        current = [t.strip() for t in (existing_tags or "").split(",") if t.strip()]
+        if tag and tag not in current:
+            current.append(tag)
+        cur.execute(
+            "UPDATE media_items SET collection_name = NULL, tags = ?, manual_override = 1 WHERE id = ?",
+            (", ".join(current) or None, item_id),
+        )
+        updated += 1
+    conn.commit()
+    conn.close()
+    return updated
+
+
 def set_item_status(item_ids: list[int], status: str, db_path: Path | None = None) -> int:
     """Markiert Dateien als 'trash' (wird von plan/apply automatisch ausgeschlossen), 'extra'
     (z.B. Behind-the-Scenes-Fotos, die man behalten aber nicht wie normale Clips einsortieren

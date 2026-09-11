@@ -155,6 +155,44 @@ def test_bulk_set_artist_creates_missing_db_row_from_json(tmp_path):
     conn.close()
 
 
+def test_bulk_clear_artist_removes_assignment(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post("/sort/p1/bulk", data={"item_id": ["1"], "action": "clear_artist"}, follow_redirects=True)
+
+    assert resp.status_code == 200
+    assert "Artist entfernt".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id FROM media_items WHERE id = 1")
+    assert cur.fetchone() == (None,)
+    conn.close()
+
+
+def test_bulk_dissolve_collection_moves_name_to_tag(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "dissolve_collection", "dissolve_collection_name": "Shoot A"},
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    assert "aufgelöst".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT collection_name, tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == (None, "Shoot A")
+    conn.close()
+
+
 def test_bulk_set_artist_reassigns_selected_items(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)
