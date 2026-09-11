@@ -66,6 +66,10 @@ CREATE TABLE IF NOT EXISTS media_items(
     applied_at TEXT,
     verified INTEGER DEFAULT 0,
 
+    transcoded_path TEXT,
+    transcoded_at TEXT,
+    transcode_verified INTEGER DEFAULT 0,
+
     scanned_at TEXT NOT NULL,
     UNIQUE(profile_id, rel_path)
 );
@@ -122,6 +126,15 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     columns = {row[1] for row in cur.fetchall()}
     if "collection_override" not in columns:
         cur.execute("ALTER TABLE unresolved_folders ADD COLUMN collection_override TEXT")
+
+    cur.execute("PRAGMA table_info(media_items)")
+    columns = {row[1] for row in cur.fetchall()}
+    if "transcoded_path" not in columns:
+        cur.execute("ALTER TABLE media_items ADD COLUMN transcoded_path TEXT")
+    if "transcoded_at" not in columns:
+        cur.execute("ALTER TABLE media_items ADD COLUMN transcoded_at TEXT")
+    if "transcode_verified" not in columns:
+        cur.execute("ALTER TABLE media_items ADD COLUMN transcode_verified INTEGER DEFAULT 0")
 
 
 def init_schema(db_path: Path | None = None) -> None:

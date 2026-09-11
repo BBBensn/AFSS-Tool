@@ -130,6 +130,45 @@ def cmd_apply(args: argparse.Namespace) -> None:
         )
 
 
+_ENCODER_CLI_NAMES = {
+    "videotoolbox": "hevc_videotoolbox",
+    "nvenc": "hevc_nvenc",
+    "qsv": "hevc_qsv",
+    "libx265": "libx265",
+}
+
+
+def cmd_transcode(args: argparse.Namespace) -> None:
+    init_schema()
+    from afss.transcode import delete_pretranscode_sources, transcode_profile
+
+    encoder = _ENCODER_CLI_NAMES.get(args.encoder) if args.encoder != "auto" else None
+    result = transcode_profile(args.profile, encoder=encoder, crf=args.crf)
+    print(
+        f"Encoder: {result['encoder']} | {result['candidates']} Kandidaten, "
+        f"{result['already_correct']} bereits im Zielformat, {result['transcoded']} transcodiert, "
+        f"{len(result['failed'])} fehlgeschlagen."
+    )
+    for f in result["failed"]:
+        print(f"  [FEHLER] item {f['item_id']}: {f['reason']}")
+
+    if args.delete_source:
+        if not args.yes_i_am_sure:
+            answer = input(
+                "Wirklich alle alten (Pre-Transcode) Dateien löschen? (j/n) "
+            ).strip().lower()
+            if answer != "j":
+                print("Abgebrochen (alte Dateien bleiben erhalten).")
+                return
+        del_result = delete_pretranscode_sources(args.profile)
+        print(
+            f"{del_result['deleted']} alte Dateien gelöscht, "
+            f"{del_result['skipped_same_file']} übersprungen (bereits Zielformat), "
+            f"{del_result['skipped_missing_transcoded']} übersprungen (Transcode-Datei fehlt), "
+            f"{del_result['missing_source']} Quelle bereits weg."
+        )
+
+
 def cmd_plan(args: argparse.Namespace) -> None:
     init_schema()
     from afss.naming import plan_profile, write_plan_report
@@ -258,6 +297,31 @@ def build_parser() -> argparse.ArgumentParser:
         "--yes-i-am-sure", action="store_true", help="Bestätigung für --delete-source ohne Rückfrage"
     )
     p_apply.set_defaults(func=cmd_apply)
+
+    p_transcode = sub.add_parser(
+        "transcode", help="Bereits applied Videos auf einheitliches Format (MP4/HEVC) bringen"
+    )
+    p_transcode.add_argument("--profile", required=True, help="Profile id")
+    p_transcode.add_argument(
+        "--encoder",
+        choices=["auto", "videotoolbox", "nvenc", "qsv", "libx265"],
+        default="auto",
+        help="Encoder (Standard: auto - erkennt verfügbare Hardware-Encoder der lokalen ffmpeg-Installation)",
+    )
+    p_transcode.add_argument(
+        "--crf",
+        type=int,
+        default=None,
+        help="Qualität überschreiben - Bedeutung hängt vom Encoder ab (CRF bei libx265, Quality-Skala 0-100 bei "
+        "videotoolbox, CQ bei nvenc/qsv). Ohne Angabe: sinnvoller Default je Encoder.",
+    )
+    p_transcode.add_argument(
+        "--delete-source", action="store_true", help="Nach Verifikation alte (Pre-Transcode) Dateien löschen"
+    )
+    p_transcode.add_argument(
+        "--yes-i-am-sure", action="store_true", help="Bestätigung für --delete-source ohne Rückfrage"
+    )
+    p_transcode.set_defaults(func=cmd_transcode)
 
     p_plan = sub.add_parser("plan", help="Zieldateinamen nach naming_template.yml berechnen")
     p_plan.add_argument("--profile", required=True, help="Profile id")
