@@ -96,6 +96,7 @@
           <button type="submit">Resolve</button>
         </form>
         <a class="btn-link" href="{{ url_for('tag.index', profile_id=p.id) }}">Tag</a>
+        <a class="btn-link" href="{{ url_for('sort.index', profile_id=p.id) }}">Sortieren</a>
         <form method="post" action="{{ url_for('run_action', action='dedupe', profile_id=p.id) }}">
           <button type="submit">Dedupe</button>
         </form>

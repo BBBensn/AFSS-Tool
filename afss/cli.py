@@ -113,6 +113,14 @@ def cmd_artists(args: argparse.Namespace) -> None:
     run_web(Path(args.config_dir), port=args.port)
 
 
+def cmd_sort(args: argparse.Namespace) -> None:
+    init_schema()
+    from afss.sort_web.app import run_web
+
+    print(f"Sortier-Studio läuft auf http://127.0.0.1:{args.port} (nur lokal erreichbar)")
+    run_web(args.profile, Path(args.config_dir), port=args.port)
+
+
 def cmd_apply(args: argparse.Namespace) -> None:
     init_schema()
     from afss.apply import apply_profile, delete_verified_sources
@@ -305,6 +313,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_artists.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
     p_artists.add_argument("--port", type=int, default=5152, help="Port (Standard: 5152)")
     p_artists.set_defaults(func=cmd_artists)
+
+    p_sort = sub.add_parser("sort", help="Sortier-Studio: manuelle Bulk-Umsortierung eines Profils")
+    p_sort.add_argument("--profile", required=True, help="Profile id")
+    p_sort.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
+    p_sort.add_argument("--port", type=int, default=5153, help="Port (Standard: 5153)")
+    p_sort.set_defaults(func=cmd_sort)
 
     p_apply = sub.add_parser("apply", help="Verifiziert kopieren (nicht verschieben)")
     p_apply.add_argument("--profile", required=True, help="Profile id")

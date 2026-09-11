@@ -25,14 +25,20 @@ Ausführen erzeugt keine Duplikate), alles läuft offline/lokal ohne externe Met
 Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und bei Bedarf
 `anonymize`/`migrate-mapping` für Text-Anonymisierung.
 
-**Web-Oberflächen** (beide Flask, nur `127.0.0.1`):
-- `afss/dashboard/` — zentrale Steuerung aller Phasen pro Profil, verlinkt auch den Artist-Editor
+**Web-Oberflächen** (alle Flask, nur `127.0.0.1`):
+- `afss/dashboard/` — zentrale Steuerung aller Phasen pro Profil, verlinkt Artist-Editor und
+  Sortier-Studio
 - `afss/artist_editor/` — Formular für `config/artists.json`, inkl. Bio-Text-Import
   (`afss/artist_editor/import_parsers.py`) von Babepedia/Boobpedia/Pornopedia; der Nutzer kopiert
   den Text selbst aus seinem Browser, das Tool ruft nichts live ab (offline-Prinzip bleibt gewahrt).
   Enthält außerdem eine Merge-Funktion (`afss/tagging.py::merge_entities`) für doppelt angelegte
   Artists: Name/Aliase des aufgelösten Eintrags werden Alias beim Ziel, zugeordnete `media_items`
   werden umgehängt, der Duplikat-Eintrag wird aus JSON und DB entfernt
+- `afss/sort_web/` (Logik in `afss/sort_studio.py`) — Sortier-Studio: zeigt alle `media_items`
+  eines Profils gruppiert nach Artist → Collection, Checkbox-Mehrfachauswahl für Bulk-Neuzuordnung
+  (Artist/Provider/Collection) und Titel-Override pro Datei. Setzt dabei `manual_override=1` auf
+  betroffenen Zeilen, damit ein späterer `resolve`-Lauf die manuelle Entscheidung nicht überschreibt
+  (siehe `afss/resolve.py`, überspringt Zeilen mit gesetztem Flag komplett)
 
 ## Aktueller Datenstand (Momentaufnahme)
 

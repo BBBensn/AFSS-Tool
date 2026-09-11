@@ -139,6 +139,10 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         cur.execute("ALTER TABLE media_items ADD COLUMN transcoded_at TEXT")
     if "transcode_verified" not in columns:
         cur.execute("ALTER TABLE media_items ADD COLUMN transcode_verified INTEGER DEFAULT 0")
+    if "manual_override" not in columns:
+        cur.execute("ALTER TABLE media_items ADD COLUMN manual_override INTEGER DEFAULT 0")
+    if "title_override" not in columns:
+        cur.execute("ALTER TABLE media_items ADD COLUMN title_override TEXT")
 
 
 def init_schema(db_path: Path | None = None) -> None:

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>AFSS Sortier-Studio — {{ profile_id }}</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #222222; --muted: #666666; --border: #cccccc;
+    --th-bg: #f2f2f2; --btn-bg: #fafafa; --btn-hover: #eeeeee;
+    --flash-ok-bg: #e6f6e6; --flash-ok-border: #99cc99;
+    --flash-error-bg: #fdecea; --flash-error-border: #ee9999;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --fg: #eaeaea; --muted: #a0a0a0; --border: #444444;
+      --th-bg: #2a2a2c; --btn-bg: #2f2f31; --btn-hover: #3a3a3c;
+      --flash-ok-bg: #123320; --flash-ok-border: #2e7d4f;
+      --flash-error-bg: #3a1f1f; --flash-error-border: #a94442;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: var(--fg); background: var(--bg); }
+  h1 { margin-bottom: 0.2rem; }
+  .top-nav { margin-bottom: 1rem; }
+  .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .flash { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.3rem 0; }
+  .flash-ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); }
+  .flash-error { background: var(--flash-error-bg); border: 1px solid var(--flash-error-border); }
+
+  .toolbar {
+    position: sticky; top: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.8rem 1rem; margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: end; z-index: 5;
+  }
+  .toolbar .field { display: flex; flex-direction: column; gap: 0.25rem; position: relative; }
+  .toolbar label { font-size: 0.75rem; color: var(--muted); }
+  input[type=text] { padding: 0.35rem 0.5rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 4px; font-size: 0.9rem; }
+  button { padding: 0.35rem 0.7rem; cursor: pointer; border: 1px solid var(--muted); border-radius: 4px;
+    background: var(--btn-bg); color: var(--fg); font-size: 0.85rem; }
+  button:hover { background: var(--btn-hover); }
+  .search-results { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; max-height: 10rem; overflow-y: auto; display: none; z-index: 10; }
+  .search-results div { padding: 0.3rem 0.5rem; cursor: pointer; }
+  .search-results div:hover { background: var(--btn-hover); }
+
+  details.artist { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; }
+  details.artist > summary { padding: 0.5rem 0.8rem; cursor: pointer; font-weight: 600; background: var(--th-bg); }
+  details.collection { margin: 0.4rem 0.8rem; border-left: 2px solid var(--border); }
+  details.collection > summary { padding: 0.3rem 0.5rem; cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+  .item-row { display: grid; grid-template-columns: auto 1fr 12rem; gap: 0.6rem; align-items: center;
+    padding: 0.3rem 0.5rem 0.3rem 1.5rem; border-top: 1px solid var(--border); }
+  .item-row .filename { font-size: 0.9rem; }
+  .item-row .rel-path { font-size: 0.75rem; color: var(--muted); }
+  .item-row .manual-badge { font-size: 0.7rem; color: var(--muted); border: 1px solid var(--border); border-radius: 3px;
+    padding: 0 0.3rem; margin-left: 0.4rem; }
+  .item-row input[type=text] { width: 100%; }
+</style>
+</head>
+<body>
+<div class="top-nav"><a href="/">← Dashboard</a></div>
+<h1>Sortier-Studio — {{ profile_id }}</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="flash flash-{{ 'error' if category == 'error' else 'ok' }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<form id="sort-form" method="post">
+  <div class="toolbar">
+    <div class="field">
+      <label for="filter-input">Filtern (nur Anzeige)</label>
+      <input type="text" id="filter-input" placeholder="Dateiname/Artist suchen...">
+    </div>
+    <div class="field">
+      <label for="artist-search">Auswahl → Artist</label>
+      <input type="text" id="artist-search" autocomplete="off" placeholder="Artist suchen...">
+      <input type="hidden" name="artist_target_id" id="artist-target-id">
+      <div class="search-results" id="artist-results"></div>
+    </div>
+    <button type="submit" name="action" value="set_artist" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Artist setzen</button>
+
+    <div class="field">
+      <label for="provider-search">Auswahl → Provider</label>
+      <input type="text" id="provider-search" autocomplete="off" placeholder="Provider suchen...">
+      <input type="hidden" name="provider_target_id" id="provider-target-id">
+      <div class="search-results" id="provider-results"></div>
+    </div>
+    <button type="submit" name="action" value="set_provider" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Provider setzen</button>
+
+    <div class="field">
+      <label for="collection-input">Auswahl → Collection</label>
+      <input type="text" id="collection-input" name="collection_name" placeholder="Collection-Name (leer = entfernen)">
+    </div>
+    <button type="submit" name="action" value="set_collection" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Collection setzen</button>
+
+    <button type="submit" name="action" value="clear_override" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+            onclick="return confirm('Manuelle Zuordnung für die Auswahl aufheben? Der nächste Resolve-Lauf berechnet Artist/Provider/Collection dann wieder automatisch.');">
+      Override aufheben
+    </button>
+
+    <button type="submit" formaction="{{ url_for('sort.titles', profile_id=profile_id) }}">Titel speichern</button>
+  </div>
+
+  {% for artist_key, artist in artists.items() %}
+  <details class="artist" open>
+    <summary>{{ artist.artist_name }}</summary>
+    {% for collection_key, collection in artist.collections.items() %}
+    <details class="collection" open>
+      <summary>{{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})</summary>
+      {% for item in collection.files %}
+      <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename)|lower }}">
+        <input type="checkbox" name="item_id" value="{{ item.id }}">
+        <div>
+          <div class="filename">
+            {{ item.filename }}
+            {% if item.manual_override %}<span class="manual-badge">manuell</span>{% endif %}
+            {% if item.provider_name %}<span class="manual-badge">{{ item.provider_name }}</span>{% endif %}
+          </div>
+          <div class="rel-path">{{ item.rel_path }}</div>
+        </div>
+        <input type="text" name="title_{{ item.id }}" placeholder="Titel-Override..." value="{{ item.title_override or '' }}">
+      </div>
+      {% endfor %}
+    </details>
+    {% endfor %}
+  </details>
+  {% else %}
+  <p>Keine Dateien gefunden (Profil noch nicht gescannt oder alle als Duplikat markiert?).</p>
+  {% endfor %}
+</form>
+
+<script>
+function setupSearch(inputId, resultsId, hiddenId, kind) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  const hidden = document.getElementById(hiddenId);
+  let timer = null;
+
+  input.addEventListener('input', function () {
+    hidden.value = '';
+    const q = input.value.trim();
+    clearTimeout(timer);
+    if (!q) { results.style.display = 'none'; results.innerHTML = ''; return; }
+    timer = setTimeout(function () {
+      fetch('{{ url_for("sort.search", profile_id=profile_id) }}?kind=' + kind + '&q=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (items) {
+          results.innerHTML = '';
+          if (!items.length) { results.style.display = 'none'; return; }
+          items.forEach(function (item) {
+            const row = document.createElement('div');
+            row.textContent = item.name;
+            row.addEventListener('click', function () {
+              input.value = item.name;
+              hidden.value = item.id;
+              results.style.display = 'none';
+            });
+            results.appendChild(row);
+          });
+          results.style.display = 'block';
+        });
+    }, 200);
+  });
+
+  document.addEventListener('click', function (evt) {
+    if (evt.target !== input) results.style.display = 'none';
+  });
+}
+
+setupSearch('artist-search', 'artist-results', 'artist-target-id', 'artist');
+setupSearch('provider-search', 'provider-results', 'provider-target-id', 'provider');
+
+document.getElementById('filter-input').addEventListener('input', function () {
+  const q = this.value.trim().toLowerCase();
+  document.querySelectorAll('.item-row').forEach(function (row) {
+    row.style.display = !q || row.dataset.search.includes(q) ? '' : 'none';
+  });
+});
+</script>
+</body>
+</html>

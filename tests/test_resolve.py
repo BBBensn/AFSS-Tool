@@ -140,6 +140,59 @@ def test_resolve_applies_manual_collection_override(tmp_path):
     conn.close()
 
 
+def test_resolve_skips_manually_overridden_items(tmp_path):
+    """Sortier-Studio-Zuordnungen (manual_override=1) dürfen von einem erneuten resolve-Lauf
+    nicht überschrieben werden - der Nutzer hat die bewusst anders gesetzt als die Alias-Logik."""
+    _setup(tmp_path)
+    db_path = tmp_path / "test.db"
+    resolve_profile("test_profile", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE media_items SET artist_id = NULL, provider_id = NULL, collection_name = 'Manuell', "
+        "manual_override = 1 WHERE filename = 'meta.json'"
+    )
+    conn.commit()
+    conn.close()
+
+    result = resolve_profile("test_profile", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id, provider_id, collection_name FROM media_items WHERE filename = 'meta.json'")
+    assert cur.fetchone() == (None, None, "Manuell")
+    conn.close()
+    # Datei hat keinen artist_id -> zählt nicht als resolved, aber wurde auch nicht neu berechnet
+    assert result["resolved"] == 1
+
+
+def test_resolve_recomputes_after_manual_override_cleared(tmp_path):
+    """clear_manual_override hebt die Sperre auf - danach greift beim nächsten resolve wieder
+    die normale Alias-Logik."""
+    _setup(tmp_path)
+    db_path = tmp_path / "test.db"
+    resolve_profile("test_profile", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE media_items SET artist_id = NULL, manual_override = 1 WHERE filename = 'meta.json'"
+    )
+    conn.commit()
+    cur.execute("UPDATE media_items SET manual_override = 0 WHERE filename = 'meta.json'")
+    conn.commit()
+    conn.close()
+
+    resolve_profile("test_profile", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id FROM media_items WHERE filename = 'meta.json'")
+    assert cur.fetchone() == ("artist_1",)
+    conn.close()
+
+
 def test_resolve_is_idempotent_and_preserves_manual_status(tmp_path):
     _setup(tmp_path)
     db_path = tmp_path / "test.db"

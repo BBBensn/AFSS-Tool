@@ -51,7 +51,7 @@ def plan_profile(profile_id: str, config_dir: Path, db_path: Path | None = None)
 
     cur.execute(
         """
-        SELECT id, media_type, ext, filename, artist_id, provider_id, fs_created_at
+        SELECT id, media_type, ext, filename, artist_id, provider_id, fs_created_at, title_override
         FROM media_items WHERE profile_id = ?
         """,
         (profile_id,),
@@ -66,7 +66,7 @@ def plan_profile(profile_id: str, config_dir: Path, db_path: Path | None = None)
     ready = []
     needs_review = []
 
-    for item_id, media_type, ext, filename, artist_id, provider_id, fs_created_at in rows:
+    for item_id, media_type, ext, filename, artist_id, provider_id, fs_created_at, title_override in rows:
         pattern = (template.get(media_type) or {}).get("pattern")
 
         if not pattern:
@@ -83,7 +83,7 @@ def plan_profile(profile_id: str, config_dir: Path, db_path: Path | None = None)
         values = {
             "artist": artist_names.get(artist_id),
             "provider": provider_names.get(provider_id),
-            "title": Path(filename).stem,
+            "title": title_override or Path(filename).stem,
             "date": (fs_created_at or None) and fs_created_at[:10],
             "year": (fs_created_at or None) and fs_created_at[:4],
             "studio": None,

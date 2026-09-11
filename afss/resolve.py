@@ -10,7 +10,7 @@ def resolve_profile(profile_id: str, db_path: Path | None = None) -> dict:
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT id, folder_level1, folder_level2 FROM media_items WHERE profile_id = ?",
+        "SELECT id, folder_level1, folder_level2, artist_id, manual_override FROM media_items WHERE profile_id = ?",
         (profile_id,),
     )
     items = cur.fetchall()
@@ -24,7 +24,14 @@ def resolve_profile(profile_id: str, db_path: Path | None = None) -> dict:
     resolved_count = 0
     unresolved = {}  # (folder_name, level) -> {"count": int, "sample_path": str}
 
-    for item_id, folder_level1, folder_level2 in items:
+    for item_id, folder_level1, folder_level2, existing_artist_id, manual_override in items:
+        if manual_override:
+            # Im Sortier-Studio manuell zugewiesene Zeilen bleiben unangetastet - ein resolve-Lauf
+            # (z.B. nach neuen Aliasen) darf eine bewusste manuelle Entscheidung nicht überschreiben.
+            if existing_artist_id:
+                resolved_count += 1
+            continue
+
         norm1 = normalize_name(folder_level1) if folder_level1 else None
         norm2 = normalize_name(folder_level2) if folder_level2 else None
 

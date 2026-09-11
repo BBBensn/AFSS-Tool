@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.3.0`
+- Version: `1.4.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.3.0`
+- Aktuell: `v1.4.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -40,6 +40,8 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     140 Artists + 2 Provider ergänzt), neuer Befehl `afss sync-identities`
   - `v1.3.0` — Artist-Merge im Artist-Editor: doppelt angelegte Artists mit dem richtigen Eintrag
     zusammenführen statt nur zu löschen (Alias- und Dateizuordnung wird übernommen)
+  - `v1.4.0` — Sortier-Studio: neue Dashboard-Ansicht pro Profil für manuelle Bulk-Umsortierung
+    (Artist/Provider/Collection/Titel), manuelle Zuordnungen überstehen künftige `resolve`-Läufe
 
 ## Changelogs & Dokumentation
 
@@ -63,6 +65,9 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 - ✅ Profil `my_passport` fertig taggen (Stand 2026-09-11: scan, resolve, alle Ordner getaggt,
   74 % resolved)
 - ✅ Artist-Merge im Artist-Editor (v1.3.0) — doppelt angelegte Einträge sauber zusammenführen
+- ✅ Sortier-Studio (v1.4.0) — manuelle Bulk-Umsortierung (Artist/Provider/Collection/Titel) pro
+  Profil im Dashboard, übersteht künftige `resolve`-Läufe
+- ⬜ Vierte Platte "T7" (bereits durchsortiert) als neues Profil in `legacy_profiles.yml` ergänzen
 - ⬜ Erster kompletter Realdaten-Durchlauf (scan→resolve→tag→dedupe→plan→apply→transcode) für
   mindestens ein Profil bis zum Ende
 - ⬜ (Zukunftsvision, noch kein Auftrag) Dropfolder-Automatisierung: neue Dateien landen in einem

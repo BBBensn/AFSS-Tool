@@ -88,6 +88,27 @@ def test_plan_profile_builds_filenames_and_flags_missing_artist(tmp_path):
     conn.close()
 
 
+def test_plan_profile_prefers_title_override_over_filename(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET title_override = 'Sauberer Titel' WHERE filename = 'clip.mp4'")
+    conn.commit()
+    conn.close()
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "naming_template.yml").write_text(
+        yaml.safe_dump({"video": {"pattern": "{artist} - {title}"}}), encoding="utf-8"
+    )
+
+    result = plan_profile("p1", config_dir, db_path)
+
+    ready = next(r for r in result["ready"] if r["old_filename"] == "clip.mp4")
+    assert ready["new_filename"] == "Artist One - Sauberer Titel.mp4"
+
+
 def test_write_plan_report_writes_csv(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

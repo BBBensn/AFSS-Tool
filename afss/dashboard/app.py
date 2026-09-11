@@ -10,6 +10,7 @@ from afss.naming import plan_profile, write_plan_report
 from afss.report import report_overview
 from afss.resolve import resolve_profile
 from afss.scan import scan_profile
+from afss.sort_web.app import build_sort_blueprint
 from afss.tag_web.app import build_tag_blueprint
 
 
@@ -19,6 +20,7 @@ def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
     app.secret_key = "afss-local-dashboard"  # nur 127.0.0.1, kein Security-relevanter Wert
     app.register_blueprint(build_tag_blueprint(db_path, config_dir), url_prefix="/tag")
     app.register_blueprint(build_artist_editor_blueprint(config_dir, db_path), url_prefix="/artists")
+    app.register_blueprint(build_sort_blueprint(db_path, config_dir), url_prefix="/sort")
 
     @app.route("/")
     def index():
