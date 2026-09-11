@@ -51,20 +51,28 @@
   .dissolve-btn { margin-left: 0.6rem; padding: 0.1rem 0.5rem; font-size: 0.75rem; cursor: pointer;
     border: 1px solid var(--border); border-radius: 4px; background: var(--btn-bg); color: var(--fg); }
   .dissolve-btn:hover { background: var(--btn-hover); }
-  .item-row { display: grid; grid-template-columns: auto 1fr 9rem 9rem; gap: 0.6rem; align-items: center;
+  .item-row { display: grid; grid-template-columns: auto 2fr 7rem 6rem 9rem 9rem 9rem; gap: 0.6rem; align-items: center;
     padding: 0.3rem 0.5rem 0.3rem 1.5rem; border-top: 1px solid var(--border); }
   .item-row .filename { font-size: 0.9rem; }
   .item-row .rel-path { font-size: 0.75rem; color: var(--muted); }
+  .item-row .col-value { font-size: 0.82rem; color: var(--fg); }
+  .item-row .col-empty { color: var(--muted); }
   .remove-co-artist { cursor: pointer; margin-left: 0.2rem; }
   .remove-co-artist:hover { color: var(--fg); }
   .item-row .manual-badge { font-size: 0.7rem; color: var(--muted); border: 1px solid var(--border); border-radius: 3px;
     padding: 0 0.3rem; margin-left: 0.4rem; }
   .item-row input[type=text] { width: 100%; }
+  .header-row { font-weight: 600; font-size: 0.78rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.03em; border: none; border-bottom: 2px solid var(--border); padding-left: 1.5rem;
+    margin-bottom: 0.5rem; }
 </style>
 </head>
 <body>
 <div class="top-nav"><a href="/">← Dashboard</a></div>
 <h1>Sortier-Studio — {{ profile_id }}</h1>
+<p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.4rem;">
+  {{ total_files }} Datei(en){% if not default_open %} — bei dieser Größe sind Artist-/Collection-Gruppen zum Start eingeklappt (Performance), gezielt aufklappen oder "Alle aufklappen" nutzen{% endif %}
+</p>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for category, message in messages %}
@@ -153,11 +161,21 @@
             formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" style="display:none;"></button>
   </div>
 
+  <div class="item-row header-row">
+    <div></div>
+    <div>Datei{% if profile_id == "all" %} / Platte{% endif %}</div>
+    <div>Provider</div>
+    <div>Status</div>
+    <div>Co-Artists</div>
+    <div>Titel-Override</div>
+    <div>Tags</div>
+  </div>
+
   {% for artist_key, artist in artists.items() %}
-  <details class="artist" open>
+  <details class="artist" {% if default_open %}open{% endif %}>
     <summary><input type="checkbox" class="select-scope" onclick="event.stopPropagation()"> {{ artist.artist_name }}</summary>
     {% for collection_key, collection in artist.collections.items() %}
-    <details class="collection" open>
+    <details class="collection" {% if default_open %}open{% endif %}>
       <summary>
         <input type="checkbox" class="select-scope" onclick="event.stopPropagation()">
         {{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})
@@ -174,18 +192,24 @@
             {{ item.filename }}
             {% if profile_id == "all" %}<span class="manual-badge">{{ item.profile_id }}</span>{% endif %}
             {% if item.manual_override %}<span class="manual-badge">manuell</span>{% endif %}
-            {% if item.provider_name %}<span class="manual-badge">{{ item.provider_name }}</span>{% endif %}
-            {% if item.item_status != "active" %}<span class="manual-badge">{{ item.item_status }}</span>{% endif %}
+          </div>
+          <div class="rel-path">{{ item.rel_path }}</div>
+        </div>
+        <div class="col-value {{ 'col-empty' if not item.provider_name }}">{{ item.provider_name or "—" }}</div>
+        <div class="col-value {{ 'col-empty' if item.item_status == 'active' }}">
+          {{ "—" if item.item_status == "active" else item.item_status }}
+        </div>
+        <div class="col-value {{ 'col-empty' if not item.co_artists }}">
+          {% if item.co_artists %}
             {% for co in item.co_artists %}
               <span class="manual-badge">+ {{ co.name }}
                 <span class="remove-co-artist" data-item="{{ item.id }}" data-artist="{{ co.id }}" title="entfernen">×</span>
               </span>
             {% endfor %}
-          </div>
-          <div class="rel-path">{{ item.rel_path }}</div>
+          {% else %}—{% endif %}
         </div>
-        <input type="text" name="title_{{ item.id }}" placeholder="Titel-Override..." value="{{ item.title_override or '' }}">
-        <input type="text" name="tags_{{ item.id }}" placeholder="Tags (kommasepariert)..." value="{{ item.tags }}">
+        <input type="text" name="title_{{ item.id }}" placeholder="—" value="{{ item.title_override or '' }}">
+        <input type="text" name="tags_{{ item.id }}" placeholder="—" value="{{ item.tags }}">
       </div>
       {% endfor %}
     </details>
@@ -274,7 +298,11 @@ function applyFilters() {
   });
 }
 
-document.getElementById('filter-input').addEventListener('input', applyFilters);
+let filterDebounceTimer = null;
+document.getElementById('filter-input').addEventListener('input', function () {
+  clearTimeout(filterDebounceTimer);
+  filterDebounceTimer = setTimeout(applyFilters, 250);
+});
 document.querySelectorAll('.profile-filter-box').forEach(function (box) {
   box.addEventListener('change', applyFilters);
 });

@@ -35,6 +35,43 @@ def _seed(db_path, config_dir=None):
         )
 
 
+def test_index_defaults_details_open_for_small_datasets(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/")
+
+    assert b'<details class="artist" open>' in resp.data
+    assert b"1 Datei(en)" in resp.data
+
+
+def test_index_defaults_details_closed_for_large_datasets(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO profiles(id, root_path, created_at) VALUES ('p1', '/tmp', '2020-01-01')")
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('artist_1', 'Artist One', NULL)")
+    for i in range(1, 152):
+        cur.execute(
+            "INSERT INTO media_items(profile_id, path, rel_path, filename, artist_id, scanned_at) "
+            "VALUES ('p1', ?, ?, ?, 'artist_1', '2020-01-01')",
+            (f"/a/{i}.mp4", f"{i}.mp4", f"{i}.mp4"),
+        )
+    conn.commit()
+    conn.close()
+
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/")
+
+    assert b'<details class="artist" open>' not in resp.data
+    assert b"eingeklappt" in resp.data
+
+
 def test_index_all_shows_files_from_every_profile(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

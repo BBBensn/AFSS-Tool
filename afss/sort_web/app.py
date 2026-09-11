@@ -25,11 +25,19 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
     @bp.route("/<profile_id>/")
     def index(profile_id: str):
         artists = get_profile_tree(profile_id, db_path)
-        present_profiles = sorted(
-            {item["profile_id"] for a in artists.values() for c in a["collections"].values() for item in c["files"]}
-        )
+        all_files = [item for a in artists.values() for c in a["collections"].values() for item in c["files"]]
+        present_profiles = sorted({item["profile_id"] for item in all_files})
+        # Bei vielen Dateien machen von Anfang an aufgeklappte <details> die Seite spürbar
+        # langsam (jede sichtbare Zeile kostet Layout/Paint) - ab einer gewissen Größe daher
+        # eingeklappt starten, der Nutzer klappt gezielt auf was er braucht.
+        default_open = len(all_files) <= 150
         return render_template(
-            "sort_index.html", profile_id=profile_id, artists=artists, present_profiles=present_profiles
+            "sort_index.html",
+            profile_id=profile_id,
+            artists=artists,
+            present_profiles=present_profiles,
+            default_open=default_open,
+            total_files=len(all_files),
         )
 
     @bp.route("/<profile_id>/search")
