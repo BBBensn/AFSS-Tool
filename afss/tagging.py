@@ -68,6 +68,31 @@ def _add_alias_to_json(config_dir: Path, kind: str, entity_id: str, alias_raw: s
             return
 
 
+def search_json_entities(kind: str, query: str, config_dir: Path, exclude_id: str = "") -> list[tuple[str, str]]:
+    """Sucht direkt in artists.json/providers.json statt in der DB-Tabelle. Die JSON-Datei ist die
+    verlässlichere Oberliste, weil Einträge über den Artist-Editor teils nur dort angelegt/bearbeitet
+    werden (siehe artist_editor/store.py::sync_artist_to_db) - eine Suche gegen die DB würde solche
+    Einträge sonst nicht finden."""
+    query = query.strip().lower()
+    if not query:
+        return []
+    _, data, list_key = _load_json_store(Path(config_dir), kind)
+    return [
+        (e["id"], e["canonical_name"])
+        for e in data[list_key]
+        if e.get("id") != exclude_id and query in e.get("canonical_name", "").lower()
+    ][:25]
+
+
+def get_json_canonical_name(kind: str, entity_id: str, config_dir: Path) -> str | None:
+    """Liefert den canonical_name aus artists.json/providers.json für eine Entity-ID, oder None
+    wenn dort nicht vorhanden. Genutzt um einen DB-Datensatz FK-sicher nachzuziehen, wenn im
+    Sortier-Studio ein bisher nur in JSON existierender Artist/Provider zugewiesen wird."""
+    _, data, list_key = _load_json_store(Path(config_dir), kind)
+    entry = next((e for e in data[list_key] if e.get("id") == entity_id), None)
+    return entry["canonical_name"] if entry else None
+
+
 def _kind_tables(kind: str):
     if kind not in _KIND_TABLES:
         raise ValueError(f"Unbekannter kind: {kind}")

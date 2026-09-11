@@ -192,6 +192,36 @@ def search_artists(path: Path, query: str, exclude_id: str = "") -> list[dict]:
     ][:25]
 
 
+def sync_artist_to_db(entry: dict, original_id: str | None, db_path: Path | None = None) -> None:
+    """Zieht einen über den Artist-Editor gespeicherten Artist in die SQLite-DB nach - ohne das
+    würde 'save' nur artists.json schreiben, und der Artist wäre in DB-gestützten Features (z.B.
+    Sortier-Studio-Suche, alias-Matching) unsichtbar, obwohl er im Editor sichtbar existiert.
+    Bei einer ID-Änderung werden bestehende artist_aliases/media_items auf die neue ID umgehängt,
+    statt die alte DB-Zeile (samt Referenzen) verwaist zurückzulassen."""
+    from afss.db import get_connection
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+
+    # Neue/geänderte ID muss zuerst existieren, bevor Referenzen darauf umgehängt werden können
+    # (artist_aliases/media_items haben eine FK auf artists.id).
+    cur.execute(
+        "INSERT INTO artists(id, canonical_name, tags_json) VALUES (?, ?, NULL) "
+        "ON CONFLICT(id) DO UPDATE SET canonical_name = excluded.canonical_name",
+        (entry["id"], entry["canonical_name"]),
+    )
+
+    if original_id and original_id != entry["id"]:
+        cur.execute("SELECT 1 FROM artists WHERE id = ?", (original_id,))
+        if cur.fetchone() is not None:
+            cur.execute("UPDATE artist_aliases SET artist_id = ? WHERE artist_id = ?", (entry["id"], original_id))
+            cur.execute("UPDATE media_items SET artist_id = ? WHERE artist_id = ?", (entry["id"], original_id))
+            cur.execute("DELETE FROM artists WHERE id = ?", (original_id,))
+
+    conn.commit()
+    conn.close()
+
+
 def delete_artist(path: Path, artist_id: str) -> bool:
     artists = load_artists(path)
     remaining = [a for a in artists if a["id"] != artist_id]

@@ -1,8 +1,10 @@
+import json
+
 from afss.db import get_connection, init_schema
 from afss.sort_web.app import create_app
 
 
-def _seed(db_path):
+def _seed(db_path, config_dir=None):
     init_schema(db_path)
     conn = get_connection(db_path)
     cur = conn.cursor()
@@ -17,6 +19,20 @@ def _seed(db_path):
     )
     conn.commit()
     conn.close()
+
+    if config_dir is not None:
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / "artists.json").write_text(
+            json.dumps(
+                {
+                    "artists": [
+                        {"id": "artist_1", "canonical_name": "Artist One", "aliases": []},
+                        {"id": "artist_2", "canonical_name": "Artist Two", "aliases": []},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
 
 
 def test_index_renders_tree(tmp_path):
@@ -46,14 +62,70 @@ def test_root_redirects_to_sort_index(tmp_path):
 
 def test_search_returns_matching_artists(tmp_path):
     db_path = tmp_path / "test.db"
-    _seed(db_path)
-    app = create_app("p1", tmp_path / "config", db_path)
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
     client = app.test_client()
 
     resp = client.get("/sort/p1/search?kind=artist&q=Two")
 
     assert resp.status_code == 200
     assert resp.get_json() == [{"id": "artist_2", "name": "Artist Two"}]
+
+
+def test_search_finds_artist_that_only_exists_in_json(tmp_path):
+    """Regression: Artists, die nur über den Artist-Editor angelegt wurden (nicht über die
+    Tag-Queue), landen zunächst nur in artists.json, nicht in der DB - die Suche muss sie
+    trotzdem finden."""
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    (config_dir / "artists.json").write_text(
+        json.dumps(
+            {
+                "artists": [
+                    {"id": "artist_json_only", "canonical_name": "Melanie", "aliases": []},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/search?kind=artist&q=Melanie")
+
+    assert resp.get_json() == [{"id": "artist_json_only", "name": "Melanie"}]
+
+
+def test_bulk_set_artist_creates_missing_db_row_from_json(tmp_path):
+    """Regression: Zuweisen eines nur-in-JSON existierenden Artists darf nicht an der
+    FK-Constraint auf media_items.artist_id scheitern."""
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    (config_dir / "artists.json").write_text(
+        json.dumps({"artists": [{"id": "artist_json_only", "canonical_name": "Melanie", "aliases": []}]}),
+        encoding="utf-8",
+    )
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "set_artist", "artist_target_id": "artist_json_only"},
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    assert "neu zugeordnet".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT canonical_name FROM artists WHERE id = 'artist_json_only'")
+    assert cur.fetchone() == ("Melanie",)
+    cur.execute("SELECT artist_id FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("artist_json_only",)
+    conn.close()
 
 
 def test_bulk_set_artist_reassigns_selected_items(tmp_path):

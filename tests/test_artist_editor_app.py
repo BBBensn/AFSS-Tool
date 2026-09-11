@@ -149,6 +149,25 @@ def test_save_updates_existing_without_duplicating(tmp_path):
     assert artists[0]["default_tags"]["gender_identity"] == "trans"
 
 
+def test_save_creates_matching_db_row(tmp_path):
+    """Regression: 'Melanie' war nur in artists.json auffindbar, weil save() nie in die DB
+    geschrieben hat - dadurch war sie in DB-gestützten Suchen (Sortier-Studio) unsichtbar."""
+    config_dir = tmp_path / "config"
+    _seed(config_dir)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    app = create_app(config_dir, db_path)
+    client = app.test_client()
+
+    client.post("/artists/save", data={"canonical_name": "Melanie"})
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT canonical_name FROM artists WHERE id = 'artist_melanie'")
+    assert cur.fetchone() == ("Melanie",)
+    conn.close()
+
+
 def test_save_without_canonical_name_shows_error(tmp_path):
     config_dir = tmp_path / "config"
     _seed(config_dir)

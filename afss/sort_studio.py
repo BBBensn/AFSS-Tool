@@ -1,8 +1,23 @@
 from pathlib import Path
 
 from afss.db import get_connection
+from afss.tagging import get_json_canonical_name
 
 _ALLOWED_BULK_FIELDS = {"artist_id", "provider_id", "collection_name"}
+_TABLE_BY_FIELD = {"artist_id": ("artists", "artist"), "provider_id": ("providers", "provider")}
+
+
+def _ensure_entity_in_db(cur, field: str, entity_id: str, config_dir: Path) -> None:
+    """media_items.artist_id/provider_id haben eine FK auf artists/providers - ein Artist, der
+    bisher nur in artists.json existiert (z.B. über den Artist-Editor angelegt, siehe die
+    Such-Lücke die das ausgelöst hat), muss vor dem Zuweisen erst als DB-Zeile nachgezogen werden,
+    sonst schlägt das UPDATE mit einem FK-Constraint-Fehler fehl."""
+    table, kind = _TABLE_BY_FIELD[field]
+    cur.execute(f"SELECT 1 FROM {table} WHERE id = ?", (entity_id,))
+    if cur.fetchone() is not None:
+        return
+    canonical_name = get_json_canonical_name(kind, entity_id, config_dir) or entity_id
+    cur.execute(f"INSERT INTO {table}(id, canonical_name, tags_json) VALUES (?, ?, NULL)", (entity_id, canonical_name))
 
 
 def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
@@ -56,7 +71,9 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
     return artists
 
 
-def bulk_update(item_ids: list[int], fields: dict, db_path: Path | None = None) -> int:
+def bulk_update(
+    item_ids: list[int], fields: dict, db_path: Path | None = None, config_dir: Path | None = None
+) -> int:
     """Setzt artist_id/provider_id/collection_name für mehrere media_items auf einmal (auch auf
     None zum Zurücksetzen - daher Schlüssel-Präsenz statt Wahrheitswert prüfen) und markiert sie
     als manual_override=1, damit ein späteres 'resolve' diese Entscheidung nicht überschreibt."""
@@ -64,10 +81,17 @@ def bulk_update(item_ids: list[int], fields: dict, db_path: Path | None = None) 
     if not fields or not item_ids:
         return 0
 
-    set_clause = ", ".join(f"{k} = ?" for k in fields) + ", manual_override = 1"
-    placeholders = ",".join("?" for _ in item_ids)
     conn = get_connection(db_path)
     cur = conn.cursor()
+
+    if config_dir is not None:
+        if fields.get("artist_id"):
+            _ensure_entity_in_db(cur, "artist_id", fields["artist_id"], config_dir)
+        if fields.get("provider_id"):
+            _ensure_entity_in_db(cur, "provider_id", fields["provider_id"], config_dir)
+
+    set_clause = ", ".join(f"{k} = ?" for k in fields) + ", manual_override = 1"
+    placeholders = ",".join("?" for _ in item_ids)
     cur.execute(
         f"UPDATE media_items SET {set_clause} WHERE id IN ({placeholders})",
         (*fields.values(), *item_ids),

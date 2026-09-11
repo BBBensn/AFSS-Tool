@@ -73,6 +73,7 @@
       <label for="filter-input">Filtern (nur Anzeige)</label>
       <input type="text" id="filter-input" placeholder="Dateiname/Artist suchen...">
     </div>
+    <button type="button" id="toggle-all-btn">Alle zuklappen</button>
     <div class="field">
       <label for="artist-search">Auswahl → Artist</label>
       <input type="text" id="artist-search" autocomplete="off" placeholder="Artist suchen...">
@@ -105,10 +106,10 @@
 
   {% for artist_key, artist in artists.items() %}
   <details class="artist" open>
-    <summary>{{ artist.artist_name }}</summary>
+    <summary><input type="checkbox" class="select-scope" onclick="event.stopPropagation()"> {{ artist.artist_name }}</summary>
     {% for collection_key, collection in artist.collections.items() %}
     <details class="collection" open>
-      <summary>{{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})</summary>
+      <summary><input type="checkbox" class="select-scope" onclick="event.stopPropagation()"> {{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})</summary>
       {% for item in collection.files %}
       <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename)|lower }}">
         <input type="checkbox" name="item_id" value="{{ item.id }}">
@@ -176,6 +177,39 @@ document.getElementById('filter-input').addEventListener('input', function () {
   const q = this.value.trim().toLowerCase();
   document.querySelectorAll('.item-row').forEach(function (row) {
     row.style.display = !q || row.dataset.search.includes(q) ? '' : 'none';
+  });
+});
+
+document.getElementById('toggle-all-btn').addEventListener('click', function () {
+  const allDetails = document.querySelectorAll('#sort-form details');
+  const anyOpen = Array.from(allDetails).some(function (d) { return d.open; });
+  allDetails.forEach(function (d) { d.open = !anyOpen; });
+  this.textContent = anyOpen ? 'Alle aufklappen' : 'Alle zuklappen';
+});
+
+document.querySelectorAll('.select-scope').forEach(function (scopeBox) {
+  scopeBox.addEventListener('change', function () {
+    const details = scopeBox.closest('details');
+    details.querySelectorAll('input[name="item_id"]').forEach(function (box) {
+      if (box.closest('.item-row').style.display !== 'none') box.checked = scopeBox.checked;
+    });
+  });
+});
+
+let lastCheckedItem = null;
+document.querySelectorAll('input[name="item_id"]').forEach(function (box) {
+  box.addEventListener('click', function (evt) {
+    if (evt.shiftKey && lastCheckedItem) {
+      const all = Array.from(document.querySelectorAll('input[name="item_id"]'))
+        .filter(function (b) { return b.closest('.item-row').style.display !== 'none'; });
+      const start = all.indexOf(lastCheckedItem);
+      const end = all.indexOf(box);
+      if (start !== -1 && end !== -1) {
+        const [from, to] = start < end ? [start, end] : [end, start];
+        for (let i = from; i <= to; i++) all[i].checked = box.checked;
+      }
+    }
+    lastCheckedItem = box;
   });
 });
 </script>

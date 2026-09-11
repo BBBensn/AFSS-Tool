@@ -10,6 +10,7 @@ from afss.artist_editor.store import (
     parse_partial_date,
     search_artists,
     slugify,
+    sync_artist_to_db,
     tags_with_defaults,
     upsert_artist,
 )
@@ -70,6 +71,7 @@ def build_artist_editor_blueprint(config_dir: Path, db_path: Path | None = None)
             entry["id"] = "artist_" + (slugify(entry["canonical_name"]) or "unbenannt")
 
         upsert_artist(artists_path, entry, original_id)
+        sync_artist_to_db(entry, original_id, db_path)
         flash(f"'{entry['canonical_name']}' gespeichert.", "ok")
         return redirect(url_for("artist_editor.index"))
 

@@ -10,9 +10,11 @@ from afss.artist_editor.store import (
     save_artists,
     search_artists,
     serialize_partial_date,
+    sync_artist_to_db,
     tags_with_defaults,
     upsert_artist,
 )
+from afss.db import get_connection, init_schema
 
 
 def test_artist_from_form_parses_types_correctly():
@@ -273,6 +275,63 @@ def test_search_artists_empty_query_returns_nothing(tmp_path):
     save_artists(path, [{"id": "a1", "canonical_name": "Eden Ivy", "aliases": [], "default_tags": {}}])
 
     assert search_artists(path, "") == []
+
+
+def test_sync_artist_to_db_creates_new_row(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    sync_artist_to_db({"id": "artist_x", "canonical_name": "Artist X"}, None, db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT canonical_name FROM artists WHERE id = 'artist_x'")
+    assert cur.fetchone() == ("Artist X",)
+    conn.close()
+
+
+def test_sync_artist_to_db_updates_name_for_same_id(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    sync_artist_to_db({"id": "artist_x", "canonical_name": "Old Name"}, None, db_path)
+
+    sync_artist_to_db({"id": "artist_x", "canonical_name": "New Name"}, "artist_x", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT canonical_name FROM artists WHERE id = 'artist_x'")
+    assert cur.fetchone() == ("New Name",)
+    cur.execute("SELECT COUNT(*) FROM artists")
+    assert cur.fetchone()[0] == 1
+    conn.close()
+
+
+def test_sync_artist_to_db_reassigns_references_on_id_change(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('old_id', 'Name', NULL)")
+    cur.execute("INSERT INTO artist_aliases(alias, alias_raw, artist_id) VALUES ('alias1', 'Alias1', 'old_id')")
+    cur.execute("INSERT INTO profiles(id, root_path) VALUES ('p1', '/root')")
+    cur.execute(
+        "INSERT INTO media_items(profile_id, path, rel_path, filename, artist_id, scanned_at) "
+        "VALUES ('p1', '/a', 'a', 'a.mp4', 'old_id', datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    sync_artist_to_db({"id": "new_id", "canonical_name": "Name"}, "old_id", db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM artists WHERE id = 'old_id'")
+    assert cur.fetchone() is None
+    cur.execute("SELECT artist_id FROM artist_aliases WHERE alias = 'alias1'")
+    assert cur.fetchone() == ("new_id",)
+    cur.execute("SELECT artist_id FROM media_items WHERE path = '/a'")
+    assert cur.fetchone() == ("new_id",)
+    conn.close()
 
 
 def test_save_artists_is_atomic_write(tmp_path):
