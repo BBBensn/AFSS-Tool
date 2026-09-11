@@ -9,26 +9,37 @@ from afss.sort_studio import (
     clear_manual_override,
     create_entity,
     dissolve_collection,
+    get_locked_artist_keys,
     get_profile_tree,
     remove_co_artist,
     save_tags,
     save_title_overrides,
+    set_artist_locked,
     set_item_status,
 )
 from afss.tagging import search_json_entities
 
+_SORT_OPTIONS = ("collection", "filename", "ext", "folder")
+
 
 def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = None) -> Blueprint:
     """Blueprint mit /<profile_id>/-Routen, damit ein Flask-Prozess mehrere Profile bedienen kann
-    (gleiches Muster wie build_tag_blueprint)."""
+    (gleiches Muster wie build_tag_blueprint).
+
+    Bulk-Aktionen (bulk/details) rendern die Seite direkt in derselben Response statt per
+    redirect+neuem GET - das JS im Template holt diese Response per fetch() und tauscht nur den
+    Inhalt von #app-root aus, ohne echte Seitennavigation. Dadurch bleiben Scroll-Position,
+    Browser-History usw. unangetastet; ein Redirect würde das wieder zunichtemachen."""
     bp = Blueprint("sort", __name__, template_folder="templates")
 
-    @bp.route("/<profile_id>/")
-    def index(profile_id: str):
-        sort_by = request.args.get("sort", "collection")
-        if sort_by not in ("collection", "filename", "ext", "folder"):
-            sort_by = "collection"
+    def _sort_by() -> str:
+        sort_by = request.values.get("sort", "collection")
+        return sort_by if sort_by in _SORT_OPTIONS else "collection"
+
+    def _render_page(profile_id: str):
+        sort_by = _sort_by()
         artists = get_profile_tree(profile_id, db_path, sort_by)
+        locked_artist_keys = get_locked_artist_keys(db_path)
         all_files = [item for a in artists.values() for c in a["collections"].values() for item in c["files"]]
         present_profiles = sorted({item["profile_id"] for item in all_files})
         # Bei vielen Dateien machen von Anfang an aufgeklappte <details> die Seite spürbar
@@ -43,7 +54,12 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             default_open=default_open,
             total_files=len(all_files),
             sort_by=sort_by,
+            locked_artist_keys=locked_artist_keys,
         )
+
+    @bp.route("/<profile_id>/")
+    def index(profile_id: str):
+        return _render_page(profile_id)
 
     @bp.route("/<profile_id>/search")
     def search(profile_id: str):
@@ -51,14 +67,6 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         query = request.args.get("q", "")
         matches = search_json_entities(kind, query, config_dir) if config_dir is not None else []
         return jsonify([{"id": eid, "name": name} for eid, name in matches])
-
-    def _redirect_back(profile_id: str):
-        # current_sort wird als Hidden-Field mitgeschickt, damit ein Bulk-Save die gewählte
-        # Sortierung nicht stillschweigend auf "Collection" zurücksetzt.
-        sort_by = request.form.get("current_sort", "").strip()
-        if sort_by and sort_by != "collection":
-            return redirect(url_for("sort.index", profile_id=profile_id, sort=sort_by))
-        return redirect(url_for("sort.index", profile_id=profile_id))
 
     def _resolve_artist_or_provider(kind: str, target_id: str, new_name: str) -> str | None:
         """target_id gewinnt (bestehender Treffer aus der Suche); sonst wird bei vorhandenem
@@ -77,7 +85,7 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
 
         if not item_ids:
             flash("Bulk-Aktion: keine Dateien ausgewählt.", "error")
-            return _redirect_back(profile_id)
+            return _render_page(profile_id)
 
         if action == "set_artist":
             target_id = request.form.get("artist_target_id", "").strip()
@@ -204,7 +212,7 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         else:
             flash(f"Unbekannte Aktion: {action}", "error")
 
-        return _redirect_back(profile_id)
+        return _render_page(profile_id)
 
     @bp.route("/<profile_id>/details", methods=["POST"])
     def details(profile_id: str):
@@ -225,15 +233,18 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         n_titles = save_title_overrides(titles, db_path)
         n_tags = save_tags(tags, db_path)
         flash(f"{n_titles} Titel, {n_tags} Tag-Felder gespeichert.", "ok")
-        return _redirect_back(profile_id)
+        return _render_page(profile_id)
 
     @bp.route("/<profile_id>/remove-co-artist/<int:item_id>/<artist_id>", methods=["POST"])
     def remove_co_artist_route(profile_id: str, item_id: int, artist_id: str):
         remove_co_artist(item_id, artist_id, db_path)
-        sort_by = request.args.get("sort", "").strip()
-        if sort_by and sort_by != "collection":
-            return redirect(url_for("sort.index", profile_id=profile_id, sort=sort_by))
-        return redirect(url_for("sort.index", profile_id=profile_id))
+        return _render_page(profile_id)
+
+    @bp.route("/<profile_id>/toggle-lock/<artist_key>", methods=["POST"])
+    def toggle_lock(profile_id: str, artist_key: str):
+        locked = request.args.get("locked", "1") == "1"
+        set_artist_locked(artist_key, locked, db_path)
+        return _render_page(profile_id)
 
     return bp
 

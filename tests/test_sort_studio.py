@@ -8,10 +8,12 @@ from afss.sort_studio import (
     clear_manual_override,
     create_entity,
     dissolve_collection,
+    get_locked_artist_keys,
     get_profile_tree,
     remove_co_artist,
     save_tags,
     save_title_overrides,
+    set_artist_locked,
     set_item_status,
 )
 
@@ -499,4 +501,40 @@ def test_save_title_overrides_sets_and_clears(tmp_path):
     assert cur.fetchone() == ("Schöner Titel",)
     cur.execute("SELECT title_override FROM media_items WHERE id = 2")
     assert cur.fetchone() == (None,)
+    conn.close()
+
+
+def test_set_artist_locked_and_get_locked_artist_keys(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    assert get_locked_artist_keys(db_path) == set()
+
+    set_artist_locked("artist_1", True, db_path)
+    set_artist_locked("_unresolved", True, db_path)
+
+    assert get_locked_artist_keys(db_path) == {"artist_1", "_unresolved"}
+
+
+def test_set_artist_locked_can_unlock(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    set_artist_locked("artist_1", True, db_path)
+
+    set_artist_locked("artist_1", False, db_path)
+
+    assert get_locked_artist_keys(db_path) == set()
+
+
+def test_set_artist_locked_is_idempotent(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    set_artist_locked("artist_1", True, db_path)
+    set_artist_locked("artist_1", True, db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM sort_studio_locks")
+    assert cur.fetchone()[0] == 1
     conn.close()

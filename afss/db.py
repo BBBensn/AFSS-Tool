@@ -111,6 +111,11 @@ CREATE TABLE IF NOT EXISTS media_item_co_artists(
     artist_id TEXT REFERENCES artists(id),
     PRIMARY KEY (media_item_id, artist_id)
 );
+
+CREATE TABLE IF NOT EXISTS sort_studio_locks(
+    artist_key TEXT PRIMARY KEY,
+    locked_at TEXT
+);
 """
 
 

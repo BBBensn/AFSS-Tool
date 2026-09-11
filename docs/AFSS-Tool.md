@@ -46,7 +46,12 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   `dedupe_profile`/`apply_dedupe`) - wichtig für Artists, die über mehrere Platten verteilt sind.
   Artist/Provider lassen sich explizit entfernen (nicht nur der Auto-Resolve-Override aufheben),
   und `dissolve_collection()` löst einen Collection-Ordner auf (Dateien verlieren die
-  Collection-Zuordnung, der Ordnername wird stattdessen als Tag übernommen)
+  Collection-Zuordnung, der Ordnername wird stattdessen als Tag übernommen). Artists lassen sich
+  sperren (`sort_studio_locks`, global über alle Profile) - bleiben dauerhaft zugeklappt und von
+  Bulk-Aktionen ausgenommen, als Fortschrittsmarker. Aktionen laufen als AJAX-Swap (Server rendert
+  die Seite direkt in derselben Response, Frontend tauscht nur `#app-root` per `fetch()` aus) statt
+  über einen klassischen Redirect+Reload - dadurch bleiben Scroll-Position und Gruppenzustand beim
+  Speichern ohne Sprung erhalten
 
 ## Aktueller Datenstand (Momentaufnahme)
 

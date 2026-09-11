@@ -387,7 +387,10 @@ def test_bulk_apply_all_skips_untouched_fields(tmp_path):
     conn.close()
 
 
-def test_bulk_preserves_sort_query_param_on_redirect(tmp_path):
+def test_bulk_renders_page_directly_preserving_sort(tmp_path):
+    """Seit dem Umbau auf AJAX-Swaps rendert bulk() die Seite direkt (kein redirect mehr) - das
+    JS im Template holt diese Response per fetch() und tauscht nur #app-root aus, damit keine
+    echte Navigation (und damit kein Scroll-/Layout-Reset) stattfindet."""
     db_path = tmp_path / "test.db"
     config_dir = tmp_path / "config"
     _seed(db_path, config_dir)
@@ -396,11 +399,12 @@ def test_bulk_preserves_sort_query_param_on_redirect(tmp_path):
 
     resp = client.post(
         "/sort/p1/bulk",
-        data={"item_id": ["1"], "action": "set_collection", "collection_name": "X", "current_sort": "ext"},
+        data={"item_id": ["1"], "action": "set_collection", "collection_name": "X", "sort": "ext"},
     )
 
-    assert resp.status_code == 302
-    assert resp.headers["Location"] == "/sort/p1/?sort=ext"
+    assert resp.status_code == 200
+    assert b'id="app-root"' in resp.data
+    assert b'value="ext" selected' in resp.data
 
 
 def test_bulk_create_and_add_co_artist_creates_new_entity(tmp_path):
@@ -608,3 +612,77 @@ def test_remove_co_artist_route_deletes_link(tmp_path):
     cur.execute("SELECT COUNT(*) FROM media_item_co_artists")
     assert cur.fetchone()[0] == 0
     conn.close()
+
+
+def test_toggle_lock_locks_artist(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post("/sort/p1/toggle-lock/artist_1?locked=1")
+
+    assert resp.status_code == 200
+    assert b'id="artist-artist_1"' in resp.data
+    assert b'class="artist locked"' in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM sort_studio_locks WHERE artist_key = 'artist_1'")
+    assert cur.fetchone()[0] == 1
+    conn.close()
+
+
+def test_toggle_lock_unlocks_artist(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+    client.post("/sort/p1/toggle-lock/artist_1?locked=1")
+
+    resp = client.post("/sort/p1/toggle-lock/artist_1?locked=0")
+
+    assert b'class="artist locked"' not in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM sort_studio_locks")
+    assert cur.fetchone()[0] == 0
+    conn.close()
+
+
+def test_locked_artist_renders_closed_and_disabled_checkboxes(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO sort_studio_locks(artist_key, locked_at) VALUES ('artist_1', datetime('now'))")
+    conn.commit()
+    conn.close()
+
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/")
+
+    assert b'id="artist-artist_1"' in resp.data
+    # locked -> kein "open"-Attribut, obwohl das Profil klein genug fuer default_open waere
+    assert b'id="artist-artist_1" open' not in resp.data
+    assert b'name="item_id" value="1" disabled' in resp.data
+
+
+def test_bulk_ignores_disabled_locked_items_not_submitted(tmp_path):
+    """Gesperrte Checkboxen sind disabled - Browser senden deaktivierte Formularfelder gar nicht
+    erst mit, das reicht bereits aus um gesperrte Artists von Bulk-Aktionen auszuschliessen."""
+    db_path = tmp_path / "test.db"
+    _seed(db_path, tmp_path / "config")
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    # Simuliert das Verhalten eines Browsers: eine disabled Checkbox wird nie mitgeschickt,
+    # daher übergeben wir hier bewusst keine item_id fuer den gesperrten Artist.
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"action": "clear_artist"},
+        follow_redirects=True,
+    )
+
+    assert "keine Dateien ausgewählt".encode() in resp.data

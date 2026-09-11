@@ -346,3 +346,32 @@ def remove_co_artist(item_id: int, artist_id: str, db_path: Path | None = None) 
     conn.commit()
     conn.close()
     return removed
+
+
+def get_locked_artist_keys(db_path: Path | None = None) -> set[str]:
+    """Liefert die artist_keys (echte artist_id oder '_unresolved'), die der Nutzer im
+    Sortier-Studio gesperrt hat - global über alle Profile hinweg, weil es um den eigenen
+    Bearbeitungsfortschritt an einem Artist geht, nicht um ein einzelnes Profil."""
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_key FROM sort_studio_locks")
+    keys = {r[0] for r in cur.fetchall()}
+    conn.close()
+    return keys
+
+
+def set_artist_locked(artist_key: str, locked: bool, db_path: Path | None = None) -> None:
+    """Sperrt/entsperrt einen Artist im Sortier-Studio (wie ein gesperrter Layer in Photoshop):
+    bleibt dauerhaft zugeklappt und seine Dateien werden von Auswahl/Bulk-Aktionen ausgenommen -
+    dient dem Nutzer als Fortschrittsmarker ('diesen Artist habe ich schon fertig sortiert')."""
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    if locked:
+        cur.execute(
+            "INSERT OR REPLACE INTO sort_studio_locks(artist_key, locked_at) VALUES (?, datetime('now'))",
+            (artist_key,),
+        )
+    else:
+        cur.execute("DELETE FROM sort_studio_locks WHERE artist_key = ?", (artist_key,))
+    conn.commit()
+    conn.close()
