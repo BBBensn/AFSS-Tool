@@ -8,14 +8,17 @@ from afss.artist_editor.store import (
     delete_artist,
     load_artists,
     parse_partial_date,
+    search_artists,
     slugify,
     tags_with_defaults,
     upsert_artist,
 )
+from afss.tagging import merge_entities
 
 
-def build_artist_editor_blueprint(config_dir: Path) -> Blueprint:
-    artists_path = Path(config_dir) / "artists.json"
+def build_artist_editor_blueprint(config_dir: Path, db_path: Path | None = None) -> Blueprint:
+    config_dir = Path(config_dir)
+    artists_path = config_dir / "artists.json"
     bp = Blueprint("artist_editor", __name__, template_folder="templates")
 
     @bp.route("/")
@@ -78,6 +81,33 @@ def build_artist_editor_blueprint(config_dir: Path) -> Blueprint:
         text = request.form.get("text", "")
         return jsonify(parse_pasted_bio(source, text))
 
+    @bp.route("/search")
+    def search():
+        query = request.args.get("q", "")
+        exclude_id = request.args.get("exclude", "")
+        return jsonify(search_artists(artists_path, query, exclude_id))
+
+    @bp.route("/merge/<source_id>", methods=["POST"])
+    def merge(source_id: str):
+        target_id = request.form.get("target_id", "").strip()
+        if not target_id:
+            flash("Merge: bitte einen Ziel-Artist auswählen.", "error")
+            return redirect(url_for("artist_editor.edit", artist_id=source_id))
+
+        try:
+            result = merge_entities("artist", source_id, target_id, config_dir, db_path)
+        except ValueError as exc:
+            flash(f"Merge fehlgeschlagen: {exc}", "error")
+            return redirect(url_for("artist_editor.edit", artist_id=source_id))
+
+        artists = load_artists(artists_path)
+        target_name = next((a["canonical_name"] for a in artists if a["id"] == target_id), target_id)
+        msg = f"'{source_id}' in '{target_name}' gemerged ({result['moved_items']} Dateien umgehängt)."
+        if result["conflict"]:
+            msg += f" Achtung: Alias-Konflikt mit '{result['conflict']['conflict_with']}' nicht übernommen."
+        flash(msg, "ok")
+        return redirect(url_for("artist_editor.edit", artist_id=target_id))
+
     @bp.route("/delete/<artist_id>", methods=["POST"])
     def delete(artist_id: str):
         artists = load_artists(artists_path)
@@ -94,10 +124,10 @@ def build_artist_editor_blueprint(config_dir: Path) -> Blueprint:
     return bp
 
 
-def create_app(config_dir: Path) -> Flask:
+def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
     app = Flask(__name__)
     app.secret_key = "afss-local-artist-editor"  # nur 127.0.0.1
-    app.register_blueprint(build_artist_editor_blueprint(config_dir), url_prefix="/artists")
+    app.register_blueprint(build_artist_editor_blueprint(config_dir, db_path), url_prefix="/artists")
 
     @app.route("/")
     def _root():
@@ -106,6 +136,6 @@ def create_app(config_dir: Path) -> Flask:
     return app
 
 
-def run_web(config_dir: Path, port: int = 5152) -> None:
-    app = create_app(config_dir)
+def run_web(config_dir: Path, port: int = 5152, db_path: Path | None = None) -> None:
+    app = create_app(config_dir, db_path)
     app.run(host="127.0.0.1", port=port, debug=False)

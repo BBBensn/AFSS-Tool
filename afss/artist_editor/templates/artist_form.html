@@ -292,11 +292,89 @@
 </form>
 
 {% if artist %}
+<section style="margin-top: 2.5rem;">
+  <h2>Mit anderem Artist zusammenführen</h2>
+  <p class="hint" style="margin-bottom: 0.6rem;">
+    Für doppelt angelegte Einträge: "{{ artist.canonical_name }}" wird gelöscht, sein Name und
+    seine Aliase werden als Alias beim Ziel-Artist eingetragen, zugeordnete Dateien umgehängt.
+  </p>
+  <form method="post" action="{{ url_for('artist_editor.merge', source_id=artist.id) }}"
+        onsubmit="return confirm('\'{{ artist.canonical_name }}\' wirklich in den ausgewählten Artist mergen? Dieser Eintrag wird danach gelöscht.');"
+        style="position: relative; max-width: 22rem;">
+    <input type="hidden" id="merge-target-id" name="target_id" value="">
+    <div class="field">
+      <label for="merge-search">Merge mit …</label>
+      <input type="text" id="merge-search" autocomplete="off" placeholder="Artist suchen...">
+    </div>
+    <div id="merge-results" style="position: absolute; z-index: 10; top: 100%; left: 0; right: 0;
+         background: var(--bg); border: 1px solid var(--border); border-radius: 5px; display: none;
+         max-height: 12rem; overflow-y: auto;"></div>
+    <button type="submit" id="merge-submit-btn" class="btn-danger" disabled style="margin-top: 0.7rem;">Mergen</button>
+  </form>
+</section>
+
 <form method="post" action="{{ url_for('artist_editor.delete', artist_id=artist.id) }}"
       onsubmit="return confirm('{{ artist.canonical_name }} wirklich löschen? Das kann nicht rückgängig gemacht werden.');"
       style="margin-top: 1rem;">
   <button type="submit" class="btn-danger">Artist löschen</button>
 </form>
+
+<script>
+(function () {
+  const searchInput = document.getElementById('merge-search');
+  const resultsEl = document.getElementById('merge-results');
+  const targetIdInput = document.getElementById('merge-target-id');
+  const submitBtn = document.getElementById('merge-submit-btn');
+  let debounceTimer = null;
+
+  function clearSelection() {
+    targetIdInput.value = '';
+    submitBtn.disabled = true;
+  }
+
+  searchInput.addEventListener('input', function () {
+    clearSelection();
+    const q = searchInput.value.trim();
+    clearTimeout(debounceTimer);
+    if (!q) {
+      resultsEl.style.display = 'none';
+      resultsEl.innerHTML = '';
+      return;
+    }
+    debounceTimer = setTimeout(function () {
+      fetch('{{ url_for("artist_editor.search") }}?q=' + encodeURIComponent(q) + '&exclude={{ artist.id }}')
+        .then(function (r) { return r.json(); })
+        .then(function (items) {
+          resultsEl.innerHTML = '';
+          if (!items.length) {
+            resultsEl.style.display = 'none';
+            return;
+          }
+          items.forEach(function (item) {
+            const row = document.createElement('div');
+            row.textContent = item.canonical_name;
+            row.style.padding = '0.4rem 0.6rem';
+            row.style.cursor = 'pointer';
+            row.addEventListener('mouseenter', function () { row.style.background = 'var(--btn-hover)'; });
+            row.addEventListener('mouseleave', function () { row.style.background = ''; });
+            row.addEventListener('click', function () {
+              searchInput.value = item.canonical_name;
+              targetIdInput.value = item.id;
+              submitBtn.disabled = false;
+              resultsEl.style.display = 'none';
+            });
+            resultsEl.appendChild(row);
+          });
+          resultsEl.style.display = 'block';
+        });
+    }, 200);
+  });
+
+  document.addEventListener('click', function (evt) {
+    if (evt.target !== searchInput) resultsEl.style.display = 'none';
+  });
+})();
+</script>
 {% endif %}
 
 <script>

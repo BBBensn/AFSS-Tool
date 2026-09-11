@@ -178,6 +178,20 @@ def upsert_artist(path: Path, new_entry: dict, original_id: str | None) -> None:
     save_artists(path, artists)
 
 
+def search_artists(path: Path, query: str, exclude_id: str = "") -> list[dict]:
+    """Für die Merge-Autocomplete: Kandidaten aus artists.json, nicht aus der DB - die
+    Editor-Liste (inkl. rein JSON-only angelegter Duplikate) ist hier die maßgebliche Quelle."""
+    query = query.strip().lower()
+    if not query:
+        return []
+    artists = load_artists(path)
+    return [
+        {"id": a["id"], "canonical_name": a["canonical_name"]}
+        for a in artists
+        if a["id"] != exclude_id and query in a.get("canonical_name", "").lower()
+    ][:25]
+
+
 def delete_artist(path: Path, artist_id: str) -> bool:
     artists = load_artists(path)
     remaining = [a for a in artists if a["id"] != artist_id]

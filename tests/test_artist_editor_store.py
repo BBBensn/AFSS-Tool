@@ -8,6 +8,7 @@ from afss.artist_editor.store import (
     load_artists,
     parse_partial_date,
     save_artists,
+    search_artists,
     serialize_partial_date,
     tags_with_defaults,
     upsert_artist,
@@ -235,6 +236,43 @@ def test_delete_artist_returns_false_for_unknown_id(tmp_path):
 
     assert result is False
     assert len(load_artists(path)) == 1
+
+
+def test_search_artists_matches_substring_case_insensitive(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [
+            {"id": "a1", "canonical_name": "Eden Ivy", "aliases": [], "default_tags": {}},
+            {"id": "a2", "canonical_name": "Forest Whore", "aliases": [], "default_tags": {}},
+        ],
+    )
+
+    results = search_artists(path, "eden")
+
+    assert results == [{"id": "a1", "canonical_name": "Eden Ivy"}]
+
+
+def test_search_artists_excludes_given_id(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [
+            {"id": "a1", "canonical_name": "Eden Ivy", "aliases": [], "default_tags": {}},
+            {"id": "a2", "canonical_name": "Eden Ivy Duplicate", "aliases": [], "default_tags": {}},
+        ],
+    )
+
+    results = search_artists(path, "eden", exclude_id="a2")
+
+    assert results == [{"id": "a1", "canonical_name": "Eden Ivy"}]
+
+
+def test_search_artists_empty_query_returns_nothing(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(path, [{"id": "a1", "canonical_name": "Eden Ivy", "aliases": [], "default_tags": {}}])
+
+    assert search_artists(path, "") == []
 
 
 def test_save_artists_is_atomic_write(tmp_path):

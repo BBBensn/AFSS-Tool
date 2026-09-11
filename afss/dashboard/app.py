@@ -18,7 +18,7 @@ def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
     app = Flask(__name__)
     app.secret_key = "afss-local-dashboard"  # nur 127.0.0.1, kein Security-relevanter Wert
     app.register_blueprint(build_tag_blueprint(db_path, config_dir), url_prefix="/tag")
-    app.register_blueprint(build_artist_editor_blueprint(config_dir), url_prefix="/artists")
+    app.register_blueprint(build_artist_editor_blueprint(config_dir, db_path), url_prefix="/artists")
 
     @app.route("/")
     def index():

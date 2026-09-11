@@ -263,6 +263,68 @@ def get_trash_folder_names(db_path: Path | None = None) -> set[str]:
     return names
 
 
+def merge_entities(
+    kind: str,
+    source_id: str,
+    target_id: str,
+    config_dir: Path,
+    db_path: Path | None = None,
+) -> dict:
+    """Merged source_id in target_id: Name und vorhandene Aliase von source werden Alias bei
+    target, zugeordnete media_items werden umgehängt, source wird danach aus artists.json/
+    providers.json und - falls dort vorhanden - auch aus der DB entfernt. Für doppelt angelegte
+    Artists/Provider, die man nicht nur löschen sondern sauber mit dem richtigen Eintrag
+    verknüpfen will (keine Leichen: alte Ordnernamen bleiben als Alias auffindbar)."""
+    if source_id == target_id:
+        raise ValueError("Quelle und Ziel dürfen nicht identisch sein.")
+
+    config_dir = Path(config_dir)
+    path, data, list_key = _load_json_store(config_dir, kind)
+    source_entry = next((e for e in data[list_key] if e.get("id") == source_id), None)
+    target_entry = next((e for e in data[list_key] if e.get("id") == target_id), None)
+    if source_entry is None:
+        raise ValueError(f"Quelle nicht gefunden: {source_id}")
+    if target_entry is None:
+        raise ValueError(f"Ziel nicht gefunden: {target_id}")
+
+    table, alias_table, fk_col, _status = _kind_tables(kind)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+
+    # target muss in der DB existieren, bevor Aliase/media_items dorthin umgehängt werden können
+    # (FK-Constraint) - falls es nur in artists.json existiert, hier mit dem JSON-Namen anlegen.
+    cur.execute(f"SELECT 1 FROM {table} WHERE id = ?", (target_id,))
+    if cur.fetchone() is None:
+        cur.execute(
+            f"INSERT INTO {table}(id, canonical_name, tags_json) VALUES (?, ?, NULL)",
+            (target_id, target_entry["canonical_name"]),
+        )
+
+    cur.execute(f"SELECT 1 FROM {table} WHERE id = ?", (source_id,))
+    source_in_db = cur.fetchone() is not None
+
+    moved_items = 0
+    if source_in_db:
+        cur.execute(f"UPDATE {alias_table} SET {fk_col} = ? WHERE {fk_col} = ?", (target_id, source_id))
+        cur.execute(f"UPDATE media_items SET {fk_col} = ? WHERE {fk_col} = ?", (target_id, source_id))
+        moved_items = cur.rowcount
+        cur.execute(f"DELETE FROM {table} WHERE id = ?", (source_id,))
+
+    conflict = _add_alias_safe(cur, alias_table, fk_col, target_id, source_entry["canonical_name"])
+    conn.commit()
+    conn.close()
+
+    target_aliases = target_entry.setdefault("aliases", [])
+    for alias_raw in [source_entry["canonical_name"]] + source_entry.get("aliases", []):
+        if alias_raw and alias_raw not in target_aliases:
+            target_aliases.append(alias_raw)
+
+    data[list_key] = [e for e in data[list_key] if e.get("id") != source_id]
+    _save_json_store(path, data)
+
+    return {"moved_items": moved_items, "conflict": conflict}
+
+
 def get_collection_overrides(profile_id: str, db_path: Path | None = None) -> dict[tuple[str, int], str]:
     """Liefert {(folder_name, folder_level): collection_name}, manuell beim Taggen erfasst -
     z.B. wenn ein Ordnername Artist und Collection kombiniert ('Artist Shoot2025')."""

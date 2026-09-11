@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from afss.db import get_connection, init_schema
 from afss.tagging import (
     assign_to_existing_entity,
@@ -7,6 +9,7 @@ from afss.tagging import (
     get_pending_unresolved,
     get_trash_folder_names,
     ignore_folder,
+    merge_entities,
     search_entities,
     set_category,
     set_trash,
@@ -245,6 +248,177 @@ def test_assign_to_existing_entity_adds_alias_to_json(tmp_path):
     data = json.loads((config_dir / "providers.json").read_text(encoding="utf-8"))
     entry = next(p for p in data["providers"] if p["id"] == "prov_1")
     assert entry["aliases"] == ["ProvFolder"]
+
+
+def _write_artists_json(config_dir, entries):
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "artists.json").write_text(json.dumps({"artists": entries}), encoding="utf-8")
+
+
+def test_merge_entities_moves_media_items_and_aliases(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    init_schema(db_path)
+    _write_artists_json(
+        config_dir,
+        [
+            {"id": "dup", "canonical_name": "Dup Name", "aliases": ["dupalias"]},
+            {"id": "main", "canonical_name": "Main Name", "aliases": []},
+        ],
+    )
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO profiles(id, root_path) VALUES ('p1', '/root')")
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('dup', 'Dup Name', NULL)")
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('main', 'Main Name', NULL)")
+    cur.execute("INSERT INTO artist_aliases(alias, alias_raw, artist_id) VALUES ('dupalias', 'dupalias', 'dup')")
+    cur.execute(
+        "INSERT INTO media_items(profile_id, path, rel_path, filename, artist_id, scanned_at) "
+        "VALUES ('p1', '/a', 'a', 'a.mp4', 'dup', datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    result = merge_entities("artist", "dup", "main", config_dir, db_path)
+
+    assert result["moved_items"] == 1
+    assert result["conflict"] is None
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id FROM media_items WHERE path = '/a'")
+    assert cur.fetchone()[0] == "main"
+    cur.execute("SELECT artist_id FROM artist_aliases WHERE alias = 'dupalias'")
+    assert cur.fetchone()[0] == "main"
+    cur.execute("SELECT 1 FROM artists WHERE id = 'dup'")
+    assert cur.fetchone() is None
+    conn.close()
+
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    ids = {a["id"] for a in data["artists"]}
+    assert ids == {"main"}
+    main_entry = next(a for a in data["artists"] if a["id"] == "main")
+    assert set(main_entry["aliases"]) == {"dupalias", "Dup Name"}
+
+
+def test_merge_entities_works_when_source_only_in_json(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    init_schema(db_path)
+    _write_artists_json(
+        config_dir,
+        [
+            {"id": "dup", "canonical_name": "Dup Name", "aliases": []},
+            {"id": "main", "canonical_name": "Main Name", "aliases": []},
+        ],
+    )
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('main', 'Main Name', NULL)")
+    conn.commit()
+    conn.close()
+
+    result = merge_entities("artist", "dup", "main", config_dir, db_path)
+
+    assert result["moved_items"] == 0
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    assert {a["id"] for a in data["artists"]} == {"main"}
+
+
+def test_merge_entities_creates_target_in_db_if_only_in_json(tmp_path):
+    """target existiert nur in artists.json (noch nie über Tag-UI/migrate-legacy verwendet) -
+    muss in der DB angelegt werden, sonst verletzt das Umhängen der Aliase die FK-Constraint."""
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    init_schema(db_path)
+    _write_artists_json(
+        config_dir,
+        [
+            {"id": "dup", "canonical_name": "Dup Name", "aliases": []},
+            {"id": "main", "canonical_name": "Main Name", "aliases": []},
+        ],
+    )
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO profiles(id, root_path) VALUES ('p1', '/root')")
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('dup', 'Dup Name', NULL)")
+    cur.execute(
+        "INSERT INTO media_items(profile_id, path, rel_path, filename, artist_id, scanned_at) "
+        "VALUES ('p1', '/a', 'a', 'a.mp4', 'dup', datetime('now'))"
+    )
+    conn.commit()
+    conn.close()
+
+    result = merge_entities("artist", "dup", "main", config_dir, db_path)
+
+    assert result["moved_items"] == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT canonical_name FROM artists WHERE id = 'main'")
+    assert cur.fetchone()[0] == "Main Name"
+    conn.close()
+
+
+def test_merge_entities_reports_conflict_without_dropping_the_merge(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    init_schema(db_path)
+    _write_artists_json(
+        config_dir,
+        [
+            {"id": "dup", "canonical_name": "Shared Name", "aliases": []},
+            {"id": "main", "canonical_name": "Main Name", "aliases": []},
+            {"id": "third", "canonical_name": "Third", "aliases": []},
+        ],
+    )
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('dup', 'Shared Name', NULL)")
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('main', 'Main Name', NULL)")
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('third', 'Third', NULL)")
+    cur.execute("INSERT INTO artist_aliases(alias, alias_raw, artist_id) VALUES ('sharedname', 'Shared Name', 'third')")
+    conn.commit()
+    conn.close()
+
+    result = merge_entities("artist", "dup", "main", config_dir, db_path)
+
+    assert result["conflict"] is not None
+    assert result["conflict"]["conflict_with"] == "third"
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM artists WHERE id = 'dup'")
+    assert cur.fetchone() is None  # Merge läuft trotz Alias-Konflikt durch
+    conn.close()
+
+
+def test_merge_entities_raises_when_source_equals_target(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    init_schema(db_path)
+    _write_artists_json(config_dir, [{"id": "a", "canonical_name": "A", "aliases": []}])
+
+    with pytest.raises(ValueError):
+        merge_entities("artist", "a", "a", config_dir, db_path)
+
+
+def test_merge_entities_raises_when_source_missing(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    init_schema(db_path)
+    _write_artists_json(config_dir, [{"id": "main", "canonical_name": "Main", "aliases": []}])
+
+    with pytest.raises(ValueError):
+        merge_entities("artist", "does_not_exist", "main", config_dir, db_path)
+
+
+def test_merge_entities_raises_when_target_missing(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    init_schema(db_path)
+    _write_artists_json(config_dir, [{"id": "dup", "canonical_name": "Dup", "aliases": []}])
+
+    with pytest.raises(ValueError):
+        merge_entities("artist", "dup", "does_not_exist", config_dir, db_path)
 
 
 def test_search_entities(tmp_path):

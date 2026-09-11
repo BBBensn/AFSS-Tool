@@ -2,6 +2,7 @@ import json
 
 from afss.artist_editor.app import create_app
 from afss.artist_editor.store import load_artists
+from afss.db import get_connection, init_schema
 
 
 def _seed(config_dir):
@@ -225,3 +226,86 @@ def test_delete_unknown_id_shows_error(tmp_path):
     resp = client.post("/artists/delete/does_not_exist", follow_redirects=True)
     assert "nicht gefunden".encode() in resp.data
     assert len(load_artists(config_dir / "artists.json")) == 1
+
+
+def _seed_two(config_dir):
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "artists.json").write_text(
+        json.dumps(
+            {
+                "artists": [
+                    {"id": "artist_alpha", "canonical_name": "Alpha", "aliases": ["alpha1"], "default_tags": {}},
+                    {"id": "artist_alpha_dup", "canonical_name": "Alpha Dup", "aliases": [], "default_tags": {}},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_search_returns_matching_artists_excluding_self(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    app = create_app(config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.get("/artists/search?q=alpha&exclude=artist_alpha_dup")
+
+    assert resp.status_code == 200
+    assert resp.get_json() == [{"id": "artist_alpha", "canonical_name": "Alpha"}]
+
+
+def test_merge_moves_source_into_target_and_redirects_to_target(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    app = create_app(config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/artists/merge/artist_alpha_dup",
+        data={"target_id": "artist_alpha"},
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    assert "gemerged".encode() in resp.data
+    artists = load_artists(config_dir / "artists.json")
+    assert {a["id"] for a in artists} == {"artist_alpha"}
+    alpha = next(a for a in artists if a["id"] == "artist_alpha")
+    assert "Alpha Dup" in alpha["aliases"]
+
+
+def test_merge_without_target_shows_error(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    app = create_app(config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post("/artists/merge/artist_alpha_dup", data={}, follow_redirects=True)
+
+    assert "bitte einen Ziel-Artist auswählen".encode() in resp.data
+    assert len(load_artists(config_dir / "artists.json")) == 2
+
+
+def test_merge_unknown_target_shows_error_and_keeps_both(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    app = create_app(config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/artists/merge/artist_alpha_dup",
+        data={"target_id": "does_not_exist"},
+        follow_redirects=True,
+    )
+
+    assert "Merge fehlgeschlagen".encode() in resp.data
+    assert len(load_artists(config_dir / "artists.json")) == 2

@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.2.0`
+- Version: `1.3.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.2.0`
+- Aktuell: `v1.3.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -38,6 +38,8 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   - `v1.2.0` — Bugfixes: SQLite WAL-Modus + Busy-Timeout gegen "database is locked", Sync-Lücke
     zwischen Tag-UI und `artists.json`/`providers.json` geschlossen (write-through + Backfill,
     140 Artists + 2 Provider ergänzt), neuer Befehl `afss sync-identities`
+  - `v1.3.0` — Artist-Merge im Artist-Editor: doppelt angelegte Artists mit dem richtigen Eintrag
+    zusammenführen statt nur zu löschen (Alias- und Dateizuordnung wird übernommen)
 
 ## Changelogs & Dokumentation
 
@@ -60,6 +62,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   (VideoToolbox/NVENC/QSV/libx265), läuft unverändert auf Mac oder Windows-PC
 - ✅ Profil `my_passport` fertig taggen (Stand 2026-09-11: scan, resolve, alle Ordner getaggt,
   74 % resolved)
+- ✅ Artist-Merge im Artist-Editor (v1.3.0) — doppelt angelegte Einträge sauber zusammenführen
 - ⬜ Erster kompletter Realdaten-Durchlauf (scan→resolve→tag→dedupe→plan→apply→transcode) für
   mindestens ein Profil bis zum Ende
 - ⬜ (Zukunftsvision, noch kein Auftrag) Dropfolder-Automatisierung: neue Dateien landen in einem
