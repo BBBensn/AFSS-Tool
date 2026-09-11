@@ -52,6 +52,24 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         matches = search_json_entities(kind, query, config_dir) if config_dir is not None else []
         return jsonify([{"id": eid, "name": name} for eid, name in matches])
 
+    def _redirect_back(profile_id: str):
+        # current_sort wird als Hidden-Field mitgeschickt, damit ein Bulk-Save die gewählte
+        # Sortierung nicht stillschweigend auf "Collection" zurücksetzt.
+        sort_by = request.form.get("current_sort", "").strip()
+        if sort_by and sort_by != "collection":
+            return redirect(url_for("sort.index", profile_id=profile_id, sort=sort_by))
+        return redirect(url_for("sort.index", profile_id=profile_id))
+
+    def _resolve_artist_or_provider(kind: str, target_id: str, new_name: str) -> str | None:
+        """target_id gewinnt (bestehender Treffer aus der Suche); sonst wird bei vorhandenem
+        new_name ein neuer Eintrag angelegt. Gibt None zurück wenn beides leer ist (Feld einfach
+        nicht ausgefüllt - beim kombinierten 'Alles setzen' kein Fehler, sondern übersprungen)."""
+        if target_id:
+            return target_id
+        if new_name and config_dir is not None:
+            return create_entity(kind, new_name, config_dir, db_path)
+        return None
+
     @bp.route("/<profile_id>/bulk", methods=["POST"])
     def bulk(profile_id: str):
         item_ids = [int(v) for v in request.form.getlist("item_id")]
@@ -59,7 +77,7 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
 
         if not item_ids:
             flash("Bulk-Aktion: keine Dateien ausgewählt.", "error")
-            return redirect(url_for("sort.index", profile_id=profile_id))
+            return _redirect_back(profile_id)
 
         if action == "set_artist":
             target_id = request.form.get("artist_target_id", "").strip()
@@ -140,10 +158,53 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             new_tags = [t for t in request.form.get("new_tags", "").split(",")]
             n = add_tags(item_ids, new_tags, db_path)
             flash(f"Tags bei {n} Datei(en) ergänzt.", "ok")
+        elif action == "apply_all":
+            applied = []
+
+            artist_id = _resolve_artist_or_provider(
+                "artist", request.form.get("artist_target_id", "").strip(), request.form.get("artist_search_text", "").strip()
+            )
+            if artist_id:
+                bulk_update(item_ids, {"artist_id": artist_id}, db_path, config_dir)
+                applied.append("Artist")
+
+            provider_id = _resolve_artist_or_provider(
+                "provider", request.form.get("provider_target_id", "").strip(), request.form.get("provider_search_text", "").strip()
+            )
+            if provider_id:
+                bulk_update(item_ids, {"provider_id": provider_id}, db_path, config_dir)
+                applied.append("Provider")
+
+            collection_name = request.form.get("collection_name", "").strip()
+            if collection_name:
+                bulk_update(item_ids, {"collection_name": collection_name}, db_path, config_dir)
+                applied.append("Collection")
+
+            status = request.form.get("item_status", "").strip()
+            if status in ("active", "trash", "extra"):
+                set_item_status(item_ids, status, db_path)
+                applied.append("Status")
+
+            co_artist_id = _resolve_artist_or_provider(
+                "artist", request.form.get("co_artist_target_id", "").strip(), request.form.get("co_artist_search_text", "").strip()
+            )
+            if co_artist_id:
+                add_co_artist(item_ids, co_artist_id, db_path, config_dir)
+                applied.append("Co-Artist")
+
+            new_tags_raw = request.form.get("new_tags", "").strip()
+            if new_tags_raw:
+                add_tags(item_ids, new_tags_raw.split(","), db_path)
+                applied.append("Tags")
+
+            if applied:
+                flash(f"{len(item_ids)} Datei(en): {', '.join(applied)} gesetzt.", "ok")
+            else:
+                flash("Kein Feld ausgefüllt - nichts geändert.", "error")
         else:
             flash(f"Unbekannte Aktion: {action}", "error")
 
-        return redirect(url_for("sort.index", profile_id=profile_id))
+        return _redirect_back(profile_id)
 
     @bp.route("/<profile_id>/details", methods=["POST"])
     def details(profile_id: str):
@@ -164,11 +225,14 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         n_titles = save_title_overrides(titles, db_path)
         n_tags = save_tags(tags, db_path)
         flash(f"{n_titles} Titel, {n_tags} Tag-Felder gespeichert.", "ok")
-        return redirect(url_for("sort.index", profile_id=profile_id))
+        return _redirect_back(profile_id)
 
     @bp.route("/<profile_id>/remove-co-artist/<int:item_id>/<artist_id>", methods=["POST"])
     def remove_co_artist_route(profile_id: str, item_id: int, artist_id: str):
         remove_co_artist(item_id, artist_id, db_path)
+        sort_by = request.args.get("sort", "").strip()
+        if sort_by and sort_by != "collection":
+            return redirect(url_for("sort.index", profile_id=profile_id, sort=sort_by))
         return redirect(url_for("sort.index", profile_id=profile_id))
 
     return bp

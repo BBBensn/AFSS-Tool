@@ -81,7 +81,14 @@
 {% endwith %}
 
 <form id="sort-form" method="post">
+  <input type="hidden" name="current_sort" value="{{ sort_by }}">
   <div class="toolbar">
+    <button type="submit" name="action" value="apply_all" id="apply-all-btn"
+            formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+            onclick="return confirm('Alle ausgefüllten Felder auf die Auswahl anwenden?');"
+            style="font-weight:700; border-color: var(--fg); order: -1;">
+      ✓ Alles setzen
+    </button>
     <div class="field">
       <label for="filter-input">Filtern (nur Anzeige)</label>
       <input type="text" id="filter-input" placeholder="Dateiname, .mp4, Ordner...">
@@ -152,6 +159,7 @@
     <div class="field">
       <label for="status-select">Auswahl → Status</label>
       <select id="status-select" name="item_status">
+        <option value="" selected>— nicht ändern —</option>
         <option value="active">Aktiv (normal)</option>
         <option value="trash">Papierkorb (bei plan/apply ignoriert)</option>
         <option value="extra">Extra (behalten, nicht einsortieren)</option>
@@ -197,10 +205,10 @@
   </div>
 
   {% for artist_key, artist in artists.items() %}
-  <details class="artist" {% if default_open %}open{% endif %}>
+  <details class="artist" id="artist-{{ artist_key }}" {% if default_open %}open{% endif %}>
     <summary><input type="checkbox" class="select-scope" onclick="event.stopPropagation()"> {{ artist.artist_name }}</summary>
     {% for collection_key, collection in artist.collections.items() %}
-    <details class="collection" {% if default_open %}open{% endif %}>
+    <details class="collection" id="collection-{{ artist_key }}--{{ collection_key }}" {% if default_open %}open{% endif %}>
       <summary>
         <input type="checkbox" class="select-scope" onclick="event.stopPropagation()">
         {% if sort_by == "collection" %}
@@ -251,6 +259,44 @@
 </form>
 
 <script>
+const UI_STATE_KEY = 'afss_sort_ui_state_{{ profile_id }}';
+
+function saveUIState() {
+  try {
+    sessionStorage.setItem(UI_STATE_KEY, JSON.stringify({
+      filter: document.getElementById('filter-input').value,
+      scrollY: window.scrollY,
+      openArtists: Array.from(document.querySelectorAll('details.artist[open]')).map(function (d) { return d.id; }),
+      openCollections: Array.from(document.querySelectorAll('details.collection[open]')).map(function (d) { return d.id; }),
+    }));
+  } catch (e) { /* privater Modus o.ä. - dann bleibt der State halt nicht erhalten */ }
+}
+
+function restoreUIState() {
+  let state;
+  try { state = JSON.parse(sessionStorage.getItem(UI_STATE_KEY) || 'null'); } catch (e) { state = null; }
+  if (!state) return;
+
+  if (state.filter) document.getElementById('filter-input').value = state.filter;
+  // Muss für ALLE Details-Elemente gesetzt werden (auch explizit auf false) - sonst würde ein
+  // vom Server standardmäßig offen gerendertes Element, das der Nutzer vor dem Speichern bewusst
+  // zugeklappt hatte, beim Wiederherstellen fälschlich wieder aufklappen.
+  const openArtists = state.openArtists || [];
+  const openCollections = state.openCollections || [];
+  document.querySelectorAll('details.artist').forEach(function (d) {
+    d.open = openArtists.includes(d.id);
+  });
+  document.querySelectorAll('details.collection').forEach(function (d) {
+    d.open = openCollections.includes(d.id);
+  });
+  if (state.filter) applyFilters();
+  if (typeof state.scrollY === 'number') {
+    requestAnimationFrame(function () { window.scrollTo(0, state.scrollY); });
+  }
+}
+
+document.getElementById('sort-form').addEventListener('submit', saveUIState);
+
 function setupSearch(inputId, resultsId, hiddenId, kind, createBtnId) {
   const input = document.getElementById(inputId);
   const results = document.getElementById(resultsId);
@@ -299,9 +345,11 @@ const REMOVE_CO_ARTIST_URL_TEMPLATE = '{{ url_for("sort.remove_co_artist_route",
 document.querySelectorAll('.remove-co-artist').forEach(function (el) {
   el.addEventListener('click', function () {
     if (!confirm('Co-Artist von dieser Datei entfernen?')) return;
+    saveUIState();
     const url = REMOVE_CO_ARTIST_URL_TEMPLATE
       .replace('999999999', el.dataset.item)
-      .replace('__ARTIST__', encodeURIComponent(el.dataset.artist));
+      .replace('__ARTIST__', encodeURIComponent(el.dataset.artist))
+      + '?sort={{ sort_by }}';
     fetch(url, { method: 'POST' }).then(function () { location.reload(); });
   });
 });
@@ -389,6 +437,8 @@ document.querySelectorAll('input[name="item_id"]').forEach(function (box) {
     lastCheckedItem = box;
   });
 });
+
+restoreUIState();
 </script>
 </body>
 </html>

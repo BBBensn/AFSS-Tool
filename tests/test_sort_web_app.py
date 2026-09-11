@@ -43,7 +43,7 @@ def test_index_defaults_details_open_for_small_datasets(tmp_path):
 
     resp = client.get("/sort/p1/")
 
-    assert b'<details class="artist" open>' in resp.data
+    assert b'class="artist" id="artist-artist_1" open' in resp.data
     assert b"1 Datei(en)" in resp.data
 
 
@@ -68,7 +68,7 @@ def test_index_defaults_details_closed_for_large_datasets(tmp_path):
 
     resp = client.get("/sort/p1/")
 
-    assert b'<details class="artist" open>' not in resp.data
+    assert b'class="artist" id="artist-artist_1" open' not in resp.data
     assert b"eingeklappt" in resp.data
 
 
@@ -314,6 +314,93 @@ def test_bulk_create_and_set_provider_creates_new_entity(tmp_path):
     cur.execute("SELECT p.canonical_name FROM media_items m JOIN providers p ON p.id = m.provider_id WHERE m.id = 1")
     assert cur.fetchone() == ("New Site",)
     conn.close()
+
+
+def test_bulk_apply_all_sets_multiple_fields_at_once(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={
+            "item_id": ["1"],
+            "action": "apply_all",
+            "artist_target_id": "artist_2",
+            "collection_name": "New Collection",
+            "item_status": "extra",
+            "new_tags": "solo, pov",
+        },
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    assert "Artist".encode() in resp.data and "Collection".encode() in resp.data and "Status".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id, collection_name, item_status, tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("artist_2", "New Collection", "extra", "solo, pov")
+    conn.close()
+
+
+def test_bulk_apply_all_creates_new_artist_when_no_existing_match(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "apply_all", "artist_search_text": "Brand New Person"},
+    )
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT a.canonical_name FROM media_items m JOIN artists a ON a.id = m.artist_id WHERE m.id = 1")
+    assert cur.fetchone() == ("Brand New Person",)
+    conn.close()
+
+
+def test_bulk_apply_all_skips_untouched_fields(tmp_path):
+    """Leere Felder werden bei 'Alles setzen' übersprungen, nicht als Löschen interpretiert -
+    anders als beim einzelnen 'Collection setzen'-Button."""
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "apply_all"},
+        follow_redirects=True,
+    )
+
+    assert "nichts geändert".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT artist_id, collection_name FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("artist_1", "Shoot A")  # unverändert
+    conn.close()
+
+
+def test_bulk_preserves_sort_query_param_on_redirect(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "set_collection", "collection_name": "X", "current_sort": "ext"},
+    )
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"] == "/sort/p1/?sort=ext"
 
 
 def test_bulk_create_and_add_co_artist_creates_new_entity(tmp_path):
