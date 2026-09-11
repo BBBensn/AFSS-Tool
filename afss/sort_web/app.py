@@ -7,6 +7,7 @@ from afss.sort_studio import (
     add_tags,
     bulk_update,
     clear_manual_override,
+    create_entity,
     dissolve_collection,
     get_profile_tree,
     remove_co_artist,
@@ -63,6 +64,16 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             else:
                 n = bulk_update(item_ids, {"artist_id": target_id}, db_path, config_dir)
                 flash(f"{n} Datei(en) neu zugeordnet.", "ok")
+        elif action == "create_and_set_artist":
+            name = request.form.get("artist_search_text", "").strip()
+            if not name:
+                flash("Bitte einen Namen für den neuen Artist eingeben.", "error")
+            elif config_dir is None:
+                flash("Kein Config-Verzeichnis konfiguriert.", "error")
+            else:
+                entity_id = create_entity("artist", name, config_dir, db_path)
+                n = bulk_update(item_ids, {"artist_id": entity_id}, db_path, config_dir)
+                flash(f"Neuer Artist '{name}' angelegt und {n} Datei(en) zugeordnet.", "ok")
         elif action == "set_provider":
             target_id = request.form.get("provider_target_id", "").strip()
             if not target_id:
@@ -70,6 +81,16 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             else:
                 n = bulk_update(item_ids, {"provider_id": target_id}, db_path, config_dir)
                 flash(f"{n} Datei(en) neu zugeordnet.", "ok")
+        elif action == "create_and_set_provider":
+            name = request.form.get("provider_search_text", "").strip()
+            if not name:
+                flash("Bitte einen Namen für den neuen Provider eingeben.", "error")
+            elif config_dir is None:
+                flash("Kein Config-Verzeichnis konfiguriert.", "error")
+            else:
+                entity_id = create_entity("provider", name, config_dir, db_path)
+                n = bulk_update(item_ids, {"provider_id": entity_id}, db_path, config_dir)
+                flash(f"Neuer Provider '{name}' angelegt und {n} Datei(en) zugeordnet.", "ok")
         elif action == "set_collection":
             collection_name = request.form.get("collection_name", "").strip() or None
             n = bulk_update(item_ids, {"collection_name": collection_name}, db_path, config_dir)
@@ -101,6 +122,16 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             else:
                 n = add_co_artist(item_ids, target_id, db_path, config_dir)
                 flash(f"Co-Artist bei {n} Datei(en) ergänzt.", "ok")
+        elif action == "create_and_add_co_artist":
+            name = request.form.get("co_artist_search_text", "").strip()
+            if not name:
+                flash("Bitte einen Namen für den neuen Co-Artist eingeben.", "error")
+            elif config_dir is None:
+                flash("Kein Config-Verzeichnis konfiguriert.", "error")
+            else:
+                entity_id = create_entity("artist", name, config_dir, db_path)
+                n = add_co_artist(item_ids, entity_id, db_path, config_dir)
+                flash(f"Neuer Artist '{name}' angelegt und als Co-Artist bei {n} Datei(en) ergänzt.", "ok")
         elif action == "add_tags":
             new_tags = [t for t in request.form.get("new_tags", "").split(",")]
             n = add_tags(item_ids, new_tags, db_path)

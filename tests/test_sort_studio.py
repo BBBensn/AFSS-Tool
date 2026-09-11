@@ -6,6 +6,7 @@ from afss.sort_studio import (
     add_tags,
     bulk_update,
     clear_manual_override,
+    create_entity,
     dissolve_collection,
     get_profile_tree,
     remove_co_artist,
@@ -226,6 +227,70 @@ def test_dissolve_collection_noop_without_item_ids(tmp_path):
     _seed(db_path)
 
     assert dissolve_collection([], "Shoot A", db_path) == 0
+
+
+def test_create_entity_adds_to_json_and_db(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    init_schema(db_path)
+
+    entity_id = create_entity("artist", "New Artist", config_dir, db_path)
+
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    entry = next(a for a in data["artists"] if a["id"] == entity_id)
+    assert entry["canonical_name"] == "New Artist"
+    assert entry["aliases"] == []
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT canonical_name FROM artists WHERE id = ?", (entity_id,))
+    assert cur.fetchone() == ("New Artist",)
+    conn.close()
+
+
+def test_create_entity_for_provider(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    init_schema(db_path)
+
+    entity_id = create_entity("provider", "New Site", config_dir, db_path)
+
+    data = json.loads((config_dir / "providers.json").read_text(encoding="utf-8"))
+    assert any(p["id"] == entity_id and p["canonical_name"] == "New Site" for p in data["providers"])
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT canonical_name FROM providers WHERE id = ?", (entity_id,))
+    assert cur.fetchone() == ("New Site",)
+    conn.close()
+
+
+def test_create_entity_deduplicates_id_on_name_collision(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    init_schema(db_path)
+
+    id1 = create_entity("artist", "Jane Doe", config_dir, db_path)
+    id2 = create_entity("artist", "Jane Doe", config_dir, db_path)
+
+    assert id1 != id2
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    assert len(data["artists"]) == 2
+
+
+def test_create_entity_rejects_empty_name(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    init_schema(db_path)
+
+    try:
+        create_entity("artist", "   ", config_dir, db_path)
+        assert False, "sollte ValueError werfen"
+    except ValueError:
+        pass
 
 
 def test_set_item_status_marks_trash(tmp_path):

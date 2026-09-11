@@ -12,7 +12,7 @@ _KIND_TABLES = {
 _JSON_FILES = {"artist": ("artists.json", "artists"), "provider": ("providers.json", "providers")}
 
 
-def _load_json_store(config_dir: Path, kind: str) -> tuple[Path, dict, str]:
+def load_json_store(config_dir: Path, kind: str) -> tuple[Path, dict, str]:
     filename, list_key = _JSON_FILES[kind]
     path = Path(config_dir) / filename
     if path.exists():
@@ -23,7 +23,7 @@ def _load_json_store(config_dir: Path, kind: str) -> tuple[Path, dict, str]:
     return path, data, list_key
 
 
-def _save_json_store(path: Path, data: dict) -> None:
+def save_json_store(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".json.tmp")
     tmp_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -33,7 +33,7 @@ def _save_json_store(path: Path, data: dict) -> None:
 def _append_new_entity_to_json(config_dir: Path, kind: str, entity_id: str, canonical_name: str, alias_raw: str) -> None:
     """Hält artists.json/providers.json synchron, wenn über das Tag-UI eine neue Identität
     angelegt wird - sonst existiert sie nur in der SQLite-DB, unsichtbar für den Artist-Editor."""
-    path, data, list_key = _load_json_store(config_dir, kind)
+    path, data, list_key = load_json_store(config_dir, kind)
     if any(e.get("id") == entity_id for e in data[list_key]):
         return  # schon vorhanden (z.B. durch sync-identities), nicht doppelt anlegen
 
@@ -49,7 +49,7 @@ def _append_new_entity_to_json(config_dir: Path, kind: str, entity_id: str, cano
         entry["notes"] = ""
 
     data[list_key].append(entry)
-    _save_json_store(path, data)
+    save_json_store(path, data)
 
 
 def _add_alias_to_json(config_dir: Path, kind: str, entity_id: str, alias_raw: str) -> None:
@@ -58,13 +58,13 @@ def _add_alias_to_json(config_dir: Path, kind: str, entity_id: str, alias_raw: s
     eines Teil-Eintrags hier, das übernimmt gezielt sync-identities."""
     if not alias_raw:
         return
-    path, data, list_key = _load_json_store(config_dir, kind)
+    path, data, list_key = load_json_store(config_dir, kind)
     for entry in data[list_key]:
         if entry.get("id") == entity_id:
             aliases = entry.setdefault("aliases", [])
             if alias_raw not in aliases:
                 aliases.append(alias_raw)
-                _save_json_store(path, data)
+                save_json_store(path, data)
             return
 
 
@@ -76,7 +76,7 @@ def search_json_entities(kind: str, query: str, config_dir: Path, exclude_id: st
     query = query.strip().lower()
     if not query:
         return []
-    _, data, list_key = _load_json_store(Path(config_dir), kind)
+    _, data, list_key = load_json_store(Path(config_dir), kind)
     return [
         (e["id"], e["canonical_name"])
         for e in data[list_key]
@@ -88,7 +88,7 @@ def get_json_canonical_name(kind: str, entity_id: str, config_dir: Path) -> str 
     """Liefert den canonical_name aus artists.json/providers.json für eine Entity-ID, oder None
     wenn dort nicht vorhanden. Genutzt um einen DB-Datensatz FK-sicher nachzuziehen, wenn im
     Sortier-Studio ein bisher nur in JSON existierender Artist/Provider zugewiesen wird."""
-    _, data, list_key = _load_json_store(Path(config_dir), kind)
+    _, data, list_key = load_json_store(Path(config_dir), kind)
     entry = next((e for e in data[list_key] if e.get("id") == entity_id), None)
     return entry["canonical_name"] if entry else None
 
@@ -304,7 +304,7 @@ def merge_entities(
         raise ValueError("Quelle und Ziel dürfen nicht identisch sein.")
 
     config_dir = Path(config_dir)
-    path, data, list_key = _load_json_store(config_dir, kind)
+    path, data, list_key = load_json_store(config_dir, kind)
     source_entry = next((e for e in data[list_key] if e.get("id") == source_id), None)
     target_entry = next((e for e in data[list_key] if e.get("id") == target_id), None)
     if source_entry is None:
@@ -345,7 +345,7 @@ def merge_entities(
             target_aliases.append(alias_raw)
 
     data[list_key] = [e for e in data[list_key] if e.get("id") != source_id]
-    _save_json_store(path, data)
+    save_json_store(path, data)
 
     return {"moved_items": moved_items, "conflict": conflict}
 

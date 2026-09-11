@@ -230,6 +230,93 @@ def test_bulk_dissolve_collection_moves_name_to_tag(tmp_path):
     conn.close()
 
 
+def test_bulk_create_and_set_artist_creates_new_entity(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "create_and_set_artist", "artist_search_text": "Brand New Artist"},
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    assert "angelegt".encode() in resp.data
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    assert any(a["canonical_name"] == "Brand New Artist" for a in data["artists"])
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT a.canonical_name FROM media_items m JOIN artists a ON a.id = m.artist_id WHERE m.id = 1")
+    assert cur.fetchone() == ("Brand New Artist",)
+    conn.close()
+
+
+def test_bulk_create_and_set_artist_without_name_shows_error(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "create_and_set_artist", "artist_search_text": ""},
+        follow_redirects=True,
+    )
+
+    assert "Namen für den neuen Artist".encode() in resp.data
+
+
+def test_bulk_create_and_set_provider_creates_new_entity(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "create_and_set_provider", "provider_search_text": "New Site"},
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    assert "angelegt".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT p.canonical_name FROM media_items m JOIN providers p ON p.id = m.provider_id WHERE m.id = 1")
+    assert cur.fetchone() == ("New Site",)
+    conn.close()
+
+
+def test_bulk_create_and_add_co_artist_creates_new_entity(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "create_and_add_co_artist", "co_artist_search_text": "New Co Artist"},
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    assert "angelegt".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT a.canonical_name FROM media_item_co_artists mca JOIN artists a ON a.id = mca.artist_id "
+        "WHERE mca.media_item_id = 1"
+    )
+    assert cur.fetchone() == ("New Co Artist",)
+    conn.close()
+
+
 def test_bulk_set_artist_reassigns_selected_items(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

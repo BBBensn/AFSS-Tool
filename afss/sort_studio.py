@@ -1,11 +1,49 @@
 from pathlib import Path
 
 from afss.db import get_connection
-from afss.tagging import get_json_canonical_name
+from afss.normalize import normalize_name
+from afss.tagging import get_json_canonical_name, load_json_store, save_json_store
 
 _ALLOWED_BULK_FIELDS = {"artist_id", "provider_id", "collection_name"}
 _TABLE_BY_FIELD = {"artist_id": ("artists", "artist"), "provider_id": ("providers", "provider")}
 _ALLOWED_ITEM_STATUS = {"active", "trash", "extra"}
+
+
+def create_entity(kind: str, canonical_name: str, config_dir: Path, db_path: Path | None = None) -> str:
+    """Legt einen neuen Artist/Provider an, wenn im Sortier-Studio nach einem Namen gesucht wird,
+    der noch nicht existiert (artists.json/providers.json zuerst, DB direkt danach nachgezogen -
+    gleiche Reihenfolge wie beim Anlegen über die Tag-Queue). Bewusst ohne Dubletten-Prüfung gegen
+    Aliase o.ä. - der Nutzer merged spätere Duplikate bei Bedarf selbst über die Merge-Funktion im
+    Artist-Editor, genau wie bei versehentlich doppelt angelegten Artists zuvor."""
+    canonical_name = canonical_name.strip()
+    if not canonical_name:
+        raise ValueError("Name darf nicht leer sein.")
+
+    config_dir = Path(config_dir)
+    path, data, list_key = load_json_store(config_dir, kind)
+    base = normalize_name(canonical_name) or "entity"
+    candidate = base
+    existing_ids = {e.get("id") for e in data[list_key]}
+    suffix = 1
+    while candidate in existing_ids:
+        suffix += 1
+        candidate = f"{base}_{suffix}"
+
+    entry = {"id": candidate, "canonical_name": canonical_name, "aliases": [], "default_tags": {}, "active": True}
+    if kind == "artist":
+        entry["real_name"] = ""
+        entry["notes"] = ""
+    data[list_key].append(entry)
+    save_json_store(path, data)
+
+    table = _TABLE_BY_FIELD[f"{kind}_id"][0]
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(f"INSERT INTO {table}(id, canonical_name, tags_json) VALUES (?, ?, NULL)", (candidate, canonical_name))
+    conn.commit()
+    conn.close()
+
+    return candidate
 
 
 def _ensure_entity_in_db(cur, field: str, entity_id: str, config_dir: Path) -> None:

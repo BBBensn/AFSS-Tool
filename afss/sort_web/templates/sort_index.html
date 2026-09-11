@@ -101,21 +101,31 @@
     {% endif %}
     <div class="field">
       <label for="artist-search">Auswahl → Artist</label>
-      <input type="text" id="artist-search" autocomplete="off" placeholder="Artist suchen...">
+      <input type="text" id="artist-search" name="artist_search_text" autocomplete="off" placeholder="Artist suchen oder neu...">
       <input type="hidden" name="artist_target_id" id="artist-target-id">
       <div class="search-results" id="artist-results"></div>
     </div>
     <button type="submit" name="action" value="set_artist" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Artist setzen</button>
+    <button type="submit" name="action" value="create_and_set_artist" id="artist-create-btn" disabled
+            formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+            onclick="return confirm('Neuen Artist anlegen und der Auswahl zuweisen?');" title="Kein Treffer bei der Suche? Legt den eingegebenen Namen neu an.">
+      Neu anlegen &amp; setzen
+    </button>
     <button type="submit" name="action" value="clear_artist" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
             onclick="return confirm('Artist-Zuordnung für die Auswahl entfernen?');">Artist entfernen</button>
 
     <div class="field">
       <label for="provider-search">Auswahl → Provider</label>
-      <input type="text" id="provider-search" autocomplete="off" placeholder="Provider suchen...">
+      <input type="text" id="provider-search" name="provider_search_text" autocomplete="off" placeholder="Provider suchen oder neu...">
       <input type="hidden" name="provider_target_id" id="provider-target-id">
       <div class="search-results" id="provider-results"></div>
     </div>
     <button type="submit" name="action" value="set_provider" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Provider setzen</button>
+    <button type="submit" name="action" value="create_and_set_provider" id="provider-create-btn" disabled
+            formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+            onclick="return confirm('Neuen Provider anlegen und der Auswahl zuweisen?');" title="Kein Treffer bei der Suche? Legt den eingegebenen Namen neu an.">
+      Neu anlegen &amp; setzen
+    </button>
     <button type="submit" name="action" value="clear_provider" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
             onclick="return confirm('Provider-Zuordnung für die Auswahl entfernen?');">Provider entfernen</button>
 
@@ -142,11 +152,16 @@
 
     <div class="field">
       <label for="co-artist-search">Auswahl → Co-Artist hinzufügen</label>
-      <input type="text" id="co-artist-search" autocomplete="off" placeholder="Artist suchen...">
+      <input type="text" id="co-artist-search" name="co_artist_search_text" autocomplete="off" placeholder="Artist suchen oder neu...">
       <input type="hidden" name="co_artist_target_id" id="co-artist-target-id">
       <div class="search-results" id="co-artist-results"></div>
     </div>
     <button type="submit" name="action" value="add_co_artist" formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}">Co-Artist hinzufügen</button>
+    <button type="submit" name="action" value="create_and_add_co_artist" id="co-artist-create-btn" disabled
+            formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+            onclick="return confirm('Neuen Artist anlegen und als Co-Artist ergänzen?');" title="Kein Treffer bei der Suche? Legt den eingegebenen Namen neu an.">
+      Neu anlegen &amp; hinzufügen
+    </button>
 
     <div class="field">
       <label for="new-tags-input">Auswahl → Tags hinzufügen</label>
@@ -221,15 +236,17 @@
 </form>
 
 <script>
-function setupSearch(inputId, resultsId, hiddenId, kind) {
+function setupSearch(inputId, resultsId, hiddenId, kind, createBtnId) {
   const input = document.getElementById(inputId);
   const results = document.getElementById(resultsId);
   const hidden = document.getElementById(hiddenId);
+  const createBtn = createBtnId ? document.getElementById(createBtnId) : null;
   let timer = null;
 
   input.addEventListener('input', function () {
     hidden.value = '';
     const q = input.value.trim();
+    if (createBtn) createBtn.disabled = !q;
     clearTimeout(timer);
     if (!q) { results.style.display = 'none'; results.innerHTML = ''; return; }
     timer = setTimeout(function () {
@@ -244,6 +261,7 @@ function setupSearch(inputId, resultsId, hiddenId, kind) {
             row.addEventListener('click', function () {
               input.value = item.name;
               hidden.value = item.id;
+              if (createBtn) createBtn.disabled = true;
               results.style.display = 'none';
             });
             results.appendChild(row);
@@ -258,9 +276,9 @@ function setupSearch(inputId, resultsId, hiddenId, kind) {
   });
 }
 
-setupSearch('artist-search', 'artist-results', 'artist-target-id', 'artist');
-setupSearch('provider-search', 'provider-results', 'provider-target-id', 'provider');
-setupSearch('co-artist-search', 'co-artist-results', 'co-artist-target-id', 'artist');
+setupSearch('artist-search', 'artist-results', 'artist-target-id', 'artist', 'artist-create-btn');
+setupSearch('provider-search', 'provider-results', 'provider-target-id', 'provider', 'provider-create-btn');
+setupSearch('co-artist-search', 'co-artist-results', 'co-artist-target-id', 'artist', 'co-artist-create-btn');
 
 const REMOVE_CO_ARTIST_URL_TEMPLATE = '{{ url_for("sort.remove_co_artist_route", profile_id=profile_id, item_id=999999999, artist_id="__ARTIST__") }}';
 document.querySelectorAll('.remove-co-artist').forEach(function (el) {
