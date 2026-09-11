@@ -23,24 +23,29 @@ def _ensure_entity_in_db(cur, field: str, entity_id: str, config_dir: Path) -> N
 
 def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
     """Liefert alle media_items eines Profils gruppiert nach Artist -> Collection, für die
-    manuelle Sortier-Studio-Ansicht. Dateien, die bereits als Duplikat zum Löschen/Behalten
-    markiert wurden (dedupe_group_members.action in pending/delete), werden ausgeblendet - die
-    sind nicht Teil dessen, was der Nutzer noch manuell einsortieren muss."""
+    manuelle Sortier-Studio-Ansicht. profile_id='all' liefert profilübergreifend alle Profile auf
+    einmal (gleiche Konvention wie dedupe_profile/apply_dedupe) - wichtig für Artists, die über
+    mehrere Platten verteilt sind und sich nur so vollständig zusammenführen lassen. Dateien, die
+    bereits als Duplikat zum Löschen/Behalten markiert wurden (dedupe_group_members.action in
+    pending/delete), werden ausgeblendet - die sind nicht Teil dessen, was der Nutzer noch manuell
+    einsortieren muss."""
     conn = get_connection(db_path)
     cur = conn.cursor()
+    where_clause = "dgm.media_item_id IS NULL" if profile_id == "all" else "m.profile_id = ? AND dgm.media_item_id IS NULL"
+    params = () if profile_id == "all" else (profile_id,)
     cur.execute(
-        """
+        f"""
         SELECT m.id, m.filename, m.rel_path, m.media_type, m.artist_id, a.canonical_name,
                m.provider_id, p.canonical_name, m.collection_name, m.title_override, m.manual_override,
-               m.item_status, m.tags
+               m.item_status, m.tags, m.profile_id
         FROM media_items m
         LEFT JOIN artists a ON a.id = m.artist_id
         LEFT JOIN providers p ON p.id = m.provider_id
         LEFT JOIN dedupe_group_members dgm ON dgm.media_item_id = m.id AND dgm.action IN ('pending', 'delete')
-        WHERE m.profile_id = ? AND dgm.media_item_id IS NULL
+        WHERE {where_clause}
         ORDER BY a.canonical_name IS NULL, a.canonical_name, m.collection_name IS NULL, m.collection_name, m.filename
         """,
-        (profile_id,),
+        params,
     )
     rows = cur.fetchall()
 
@@ -67,7 +72,7 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
     for (
         item_id, filename, rel_path, media_type, artist_id, artist_name,
         provider_id, provider_name, collection_name, title_override, manual_override,
-        item_status, tags,
+        item_status, tags, item_profile_id,
     ) in rows:
         artist_key = artist_id or "_unresolved"
         artist_entry = artists.setdefault(
@@ -86,6 +91,7 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
                 "provider_name": provider_name,
                 "title_override": title_override,
                 "manual_override": bool(manual_override),
+                "profile_id": item_profile_id,
                 "item_status": item_status or "active",
                 "tags": tags or "",
                 "co_artists": co_artists_by_item.get(item_id, []),

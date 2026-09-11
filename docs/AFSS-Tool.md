@@ -41,7 +41,9 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   späterer `resolve`-Lauf die manuelle Entscheidung nicht überschreibt (siehe `afss/resolve.py`,
   überspringt Zeilen mit gesetztem Flag komplett). Zusätzlich: `item_status` (`trash`/`extra`, von
   `plan`/`apply` ausgeschlossen), freie `tags` pro Datei, `media_item_co_artists` für
-  Coop/Feature-Videos (Hauptartist bestimmt weiterhin den Zielordner)
+  Coop/Feature-Videos (Hauptartist bestimmt weiterhin den Zielordner). Unterstützt außerdem
+  `profile_id="all"` für eine profilübergreifende Ansicht (gleiche Konvention wie
+  `dedupe_profile`/`apply_dedupe`) - wichtig für Artists, die über mehrere Platten verteilt sind
 
 ## Aktueller Datenstand (Momentaufnahme)
 

@@ -24,7 +24,12 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
     @bp.route("/<profile_id>/")
     def index(profile_id: str):
         artists = get_profile_tree(profile_id, db_path)
-        return render_template("sort_index.html", profile_id=profile_id, artists=artists)
+        present_profiles = sorted(
+            {item["profile_id"] for a in artists.values() for c in a["collections"].values() for item in c["files"]}
+        )
+        return render_template(
+            "sort_index.html", profile_id=profile_id, artists=artists, present_profiles=present_profiles
+        )
 
     @bp.route("/<profile_id>/search")
     def search(profile_id: str):

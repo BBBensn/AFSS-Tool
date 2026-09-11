@@ -46,6 +46,35 @@ def _seed(db_path):
     conn.close()
 
 
+def test_get_profile_tree_all_merges_artist_split_across_profiles(tmp_path):
+    """Kernszenario der globalen Sortierung: derselbe Artist hat Dateien auf zwei Platten - mit
+    profile_id='all' landen sie in derselben Artist-Gruppe statt getrennt pro Profil."""
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO profiles(id, root_path, created_at) VALUES ('p2', '/tmp2', '2020-01-01')")
+    cur.execute(
+        """
+        INSERT INTO media_items(id, profile_id, path, rel_path, filename, artist_id, collection_name, scanned_at)
+        VALUES (4, 'p2', '/c/4.mp4', 'c/4.mp4', '4.mp4', 'artist_1', 'Shoot A', '2020-01-01')
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    tree_p1_only = get_profile_tree("p1", db_path)
+    assert {i["id"] for i in tree_p1_only["artist_1"]["collections"]["Shoot A"]["files"]} == {1, 2}
+
+    tree_all = get_profile_tree("all", db_path)
+    shoot_a_all = tree_all["artist_1"]["collections"]["Shoot A"]["files"]
+    assert {i["id"] for i in shoot_a_all} == {1, 2, 4}
+    item4 = next(i for i in shoot_a_all if i["id"] == 4)
+    assert item4["profile_id"] == "p2"
+    item1 = next(i for i in shoot_a_all if i["id"] == 1)
+    assert item1["profile_id"] == "p1"
+
+
 def test_get_profile_tree_groups_by_artist_and_collection(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

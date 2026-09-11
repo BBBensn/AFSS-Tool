@@ -76,6 +76,18 @@
       <input type="text" id="filter-input" placeholder="Dateiname/Artist suchen...">
     </div>
     <button type="button" id="toggle-all-btn">Alle zuklappen</button>
+    {% if profile_id == "all" and present_profiles|length > 1 %}
+    <div class="field">
+      <label>Filtern nach Platte</label>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+        {% for p in present_profiles %}
+        <label style="display:flex; align-items:center; gap:0.3rem; font-size:0.85rem; color:var(--fg);">
+          <input type="checkbox" class="profile-filter-box" value="{{ p }}" checked> {{ p }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
     <div class="field">
       <label for="artist-search">Auswahl → Artist</label>
       <input type="text" id="artist-search" autocomplete="off" placeholder="Artist suchen...">
@@ -137,11 +149,12 @@
     <details class="collection" open>
       <summary><input type="checkbox" class="select-scope" onclick="event.stopPropagation()"> {{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})</summary>
       {% for item in collection.files %}
-      <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename)|lower }}">
+      <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename)|lower }}" data-profile="{{ item.profile_id }}">
         <input type="checkbox" name="item_id" value="{{ item.id }}">
         <div>
           <div class="filename">
             {{ item.filename }}
+            {% if profile_id == "all" %}<span class="manual-badge">{{ item.profile_id }}</span>{% endif %}
             {% if item.manual_override %}<span class="manual-badge">manuell</span>{% endif %}
             {% if item.provider_name %}<span class="manual-badge">{{ item.provider_name }}</span>{% endif %}
             {% if item.item_status != "active" %}<span class="manual-badge">{{ item.item_status }}</span>{% endif %}
@@ -218,11 +231,23 @@ document.querySelectorAll('.remove-co-artist').forEach(function (el) {
   });
 });
 
-document.getElementById('filter-input').addEventListener('input', function () {
-  const q = this.value.trim().toLowerCase();
+function applyFilters() {
+  const q = document.getElementById('filter-input').value.trim().toLowerCase();
+  const profileBoxes = document.querySelectorAll('.profile-filter-box');
+  const activeProfiles = profileBoxes.length
+    ? Array.from(profileBoxes).filter(function (b) { return b.checked; }).map(function (b) { return b.value; })
+    : null;
+
   document.querySelectorAll('.item-row').forEach(function (row) {
-    row.style.display = !q || row.dataset.search.includes(q) ? '' : 'none';
+    const matchesText = !q || row.dataset.search.includes(q);
+    const matchesProfile = !activeProfiles || activeProfiles.includes(row.dataset.profile);
+    row.style.display = matchesText && matchesProfile ? '' : 'none';
   });
+}
+
+document.getElementById('filter-input').addEventListener('input', applyFilters);
+document.querySelectorAll('.profile-filter-box').forEach(function (box) {
+  box.addEventListener('change', applyFilters);
 });
 
 document.getElementById('toggle-all-btn').addEventListener('click', function () {
