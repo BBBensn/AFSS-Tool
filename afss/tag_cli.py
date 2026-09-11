@@ -20,7 +20,7 @@ def _print_conflict(conflict: dict | None) -> None:
         )
 
 
-def run_interactive_tag(profile_id: str, db_path: Path | None = None) -> None:
+def run_interactive_tag(profile_id: str, db_path: Path | None = None, config_dir: Path | None = None) -> None:
     while True:
         pending = get_pending_unresolved(profile_id, db_path)
         if not pending:
@@ -57,7 +57,9 @@ def run_interactive_tag(profile_id: str, db_path: Path | None = None) -> None:
             kind = "artist" if choice == "a" else "provider"
             name = input(f"Canonical name für {kind} [{folder_name}]: ").strip() or folder_name
             collection_override = input("Collection für diesen Ordner (optional, Enter zum Überspringen): ").strip()
-            _, conflict = assign_to_new_entity(unresolved_id, kind, name, db_path, collection_override or None)
+            _, conflict = assign_to_new_entity(
+                unresolved_id, kind, name, db_path, collection_override or None, config_dir
+            )
             _print_conflict(conflict)
             continue
 
@@ -76,7 +78,9 @@ def run_interactive_tag(profile_id: str, db_path: Path | None = None) -> None:
                 continue
             entity_id = matches[int(idx)][0]
             collection_override = input("Collection für diesen Ordner (optional, Enter zum Überspringen): ").strip()
-            conflict = assign_to_existing_entity(unresolved_id, kind, entity_id, db_path, collection_override or None)
+            conflict = assign_to_existing_entity(
+                unresolved_id, kind, entity_id, db_path, collection_override or None, config_dir
+            )
             _print_conflict(conflict)
             continue
 

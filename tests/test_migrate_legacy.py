@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from afss.db import get_connection, init_schema
-from afss.migrate_legacy import migrate_legacy_json
+from afss.migrate_legacy import migrate_legacy_json, sync_db_identities_to_json
 
 
 def _write_json(path: Path, data) -> None:
@@ -78,6 +78,101 @@ def test_migrate_reports_conflicts_without_overwriting(tmp_path):
     cur.execute("SELECT artist_id FROM artist_aliases WHERE alias = 'shared'")
     assert cur.fetchone()[0] == "artist_1"
     conn.close()
+
+
+def test_sync_db_identities_adds_missing_artist_with_aliases(tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    _write_json(config_dir / "artists.json", {"artists": [{"id": "kept", "canonical_name": "Kept Artist", "aliases": []}]})
+    _write_json(config_dir / "providers.json", {"providers": []})
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('newone', 'New One', NULL)")
+    cur.execute(
+        "INSERT INTO artist_aliases(alias, alias_raw, artist_id) VALUES ('newonealias', 'New One Alias', 'newone')"
+    )
+    conn.commit()
+    conn.close()
+
+    result = sync_db_identities_to_json(config_dir, db_path)
+
+    assert result["artists"]["added"] == 1
+    assert result["artists"]["total_in_json"] == 2
+
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    ids = {a["id"] for a in data["artists"]}
+    assert ids == {"kept", "newone"}
+    new_entry = next(a for a in data["artists"] if a["id"] == "newone")
+    assert new_entry["aliases"] == ["New One Alias"]
+    assert new_entry["default_tags"] == {}
+
+
+def test_sync_db_identities_never_touches_existing_entries(tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    _write_json(
+        config_dir / "artists.json",
+        {"artists": [{"id": "a1", "canonical_name": "Original Name", "aliases": ["x"], "notes": "keep me"}]},
+    )
+    _write_json(config_dir / "providers.json", {"providers": []})
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('a1', 'Different Name In DB', NULL)")
+    conn.commit()
+    conn.close()
+
+    sync_db_identities_to_json(config_dir, db_path)
+
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    assert len(data["artists"]) == 1
+    assert data["artists"][0]["canonical_name"] == "Original Name"
+    assert data["artists"][0]["notes"] == "keep me"
+
+
+def test_sync_db_identities_is_idempotent(tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    _write_json(config_dir / "artists.json", {"artists": []})
+    _write_json(config_dir / "providers.json", {"providers": []})
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('a1', 'A', NULL)")
+    conn.commit()
+    conn.close()
+
+    sync_db_identities_to_json(config_dir, db_path)
+    result = sync_db_identities_to_json(config_dir, db_path)
+
+    assert result["artists"]["added"] == 0
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    assert len(data["artists"]) == 1
+
+
+def test_sync_db_identities_creates_json_file_if_missing(tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO providers(id, canonical_name, tags_json) VALUES ('p1', 'P', NULL)")
+    conn.commit()
+    conn.close()
+
+    result = sync_db_identities_to_json(config_dir, db_path)
+
+    assert result["providers"]["added"] == 1
+    assert (config_dir / "providers.json").exists()
 
 
 def test_migrate_is_idempotent(tmp_path):

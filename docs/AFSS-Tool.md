@@ -33,20 +33,20 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
 
 ## Aktueller Datenstand (Momentaufnahme)
 
-Drei Profile gescannt, ca. 15.600 Media-Items insgesamt:
+Drei Profile gescannt, ca. 14.600 Media-Items insgesamt (Stand 2026-09-11):
 
 | Profil | Dateien | Resolved | Offene Tag-Ordner |
 |---|---|---|---|
-| elements | 4.707 | 3.112 (66 %) | 0 |
+| elements | 3.551 | 2.552 (72 %) | 0 |
 | untitled | 2.155 | 1.270 (59 %) | 0 |
-| my_passport | 8.773 | 475 (5 %) | 95 |
+| my_passport | 8.870 | 6.544 (74 %) | 0 |
 
-`config/artists.json` enthält 70 Artists, `config/providers.json` 14 Provider.
+`config/artists.json` enthält 221 Artists, `config/providers.json` 15 Provider (Stand nach dem
+v1.2.0-Backfill, siehe Changelog — vorher waren 140 Artists/2 Provider nur in der DB, nicht im
+JSON sichtbar).
 
 ## Bekannte offene Punkte
 
-- **`my_passport` ist deutlich unfertig** — sowohl beim manuellen Vor-Sortieren auf dem NAS als
-  auch beim Taggen der verbleibenden 95 unresolved Ordner
 - **Compilation-Ordner** (ein Ordner mit Clips vieler, meist bereits bekannter Artists) — noch
   keine endgültige Entscheidung, ob einzeln in die jeweiligen Artist-Ordner aufgelöst oder als
   Platzhalter-Collection belassen; Empfehlung war: bei überschaubarem Aufwand auflösen, sonst

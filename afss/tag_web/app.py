@@ -21,9 +21,11 @@ _KIND_BY_ACTION = {
 }
 
 
-def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
+def build_tag_blueprint(db_path: Path | None = None, config_dir: Path | None = None) -> Blueprint:
     """Blueprint mit /<profile_id>/-Routen, damit ein Flask-Prozess mehrere Profile bedienen kann
-    (Standalone `afss tag --web` UND das Dashboard nutzen denselben Blueprint)."""
+    (Standalone `afss tag --web` UND das Dashboard nutzen denselben Blueprint). config_dir wird
+    gebraucht, damit neu angelegte Artists/Provider auch in artists.json/providers.json landen,
+    nicht nur in der SQLite-DB."""
     bp = Blueprint("tag", __name__, template_folder="templates")
 
     @bp.route("/<profile_id>/")
@@ -57,11 +59,15 @@ def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
         elif action in ("new_artist", "new_provider"):
             name = request.form.get("canonical_name", "").strip()
             if name:
-                assign_to_new_entity(unresolved_id, _KIND_BY_ACTION[action], name, db_path, collection_override)
+                assign_to_new_entity(
+                    unresolved_id, _KIND_BY_ACTION[action], name, db_path, collection_override, config_dir
+                )
         elif action in ("existing_artist", "existing_provider"):
             entity_id = request.form.get("entity_id", "").strip()
             if entity_id:
-                assign_to_existing_entity(unresolved_id, _KIND_BY_ACTION[action], entity_id, db_path, collection_override)
+                assign_to_existing_entity(
+                    unresolved_id, _KIND_BY_ACTION[action], entity_id, db_path, collection_override, config_dir
+                )
 
         return redirect(url_for("tag.index", profile_id=profile_id))
 
@@ -81,9 +87,9 @@ def build_tag_blueprint(db_path: Path | None = None) -> Blueprint:
     return bp
 
 
-def create_app(profile_id: str, db_path: Path | None = None) -> Flask:
+def create_app(profile_id: str, db_path: Path | None = None, config_dir: Path | None = None) -> Flask:
     app = Flask(__name__)
-    app.register_blueprint(build_tag_blueprint(db_path), url_prefix="/tag")
+    app.register_blueprint(build_tag_blueprint(db_path, config_dir), url_prefix="/tag")
 
     @app.route("/")
     def _root():
@@ -92,6 +98,6 @@ def create_app(profile_id: str, db_path: Path | None = None) -> Flask:
     return app
 
 
-def run_web(profile_id: str, db_path: Path | None = None, port: int = 5151) -> None:
-    app = create_app(profile_id, db_path)
+def run_web(profile_id: str, db_path: Path | None = None, port: int = 5151, config_dir: Path | None = None) -> None:
+    app = create_app(profile_id, db_path, config_dir)
     app.run(host="127.0.0.1", port=port, debug=False)

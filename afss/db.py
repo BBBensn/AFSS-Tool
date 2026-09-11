@@ -113,8 +113,12 @@ def get_db_path() -> Path:
 
 
 def get_connection(db_path: Path | None = None) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(db_path or DB_PATH))
+    conn = sqlite3.connect(str(db_path or DB_PATH), timeout=30.0)
     conn.execute("PRAGMA foreign_keys = ON")
+    # WAL erlaubt gleichzeitige Leser während ein Schreiber aktiv ist (Dashboard + parallele
+    # Aktionen greifen sonst leicht in "database is locked", v.a. bei größeren Profilen).
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 30000")
     return conn
 
 

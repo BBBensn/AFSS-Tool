@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from afss.db import init_schema
-from afss.migrate_legacy import migrate_legacy_json
+from afss.migrate_legacy import migrate_legacy_json, sync_db_identities_to_json
 from afss.report import report_dedupe, report_missing, report_needs_review, report_overview
 from afss.resolve import resolve_profile
 from afss.scan import scan_profile
@@ -47,6 +47,14 @@ def cmd_migrate_legacy_json(args: argparse.Namespace) -> None:
                 )
 
 
+def cmd_sync_identities(args: argparse.Namespace) -> None:
+    init_schema()
+    result = sync_db_identities_to_json(Path(args.config_dir))
+    for kind in ("artists", "providers"):
+        r = result[kind]
+        print(f"{kind}: {r['added']} ergänzt, {r['total_in_json']} insgesamt im JSON")
+
+
 def cmd_anonymize(args: argparse.Namespace) -> None:
     from afss.anonymize import clean_file, declean_file
 
@@ -78,15 +86,16 @@ def cmd_migrate_mapping(args: argparse.Namespace) -> None:
 
 def cmd_tag(args: argparse.Namespace) -> None:
     init_schema()
+    config_dir = Path(args.config_dir)
     if args.web:
         from afss.tag_web.app import run_web
 
         print(f"Web-UI läuft auf http://127.0.0.1:{args.port} (nur lokal erreichbar)")
-        run_web(args.profile, port=args.port)
+        run_web(args.profile, port=args.port, config_dir=config_dir)
     else:
         from afss.tag_cli import run_interactive_tag
 
-        run_interactive_tag(args.profile)
+        run_interactive_tag(args.profile, config_dir=config_dir)
 
 
 def cmd_dashboard(args: argparse.Namespace) -> None:
@@ -258,6 +267,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_migrate.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
     p_migrate.set_defaults(func=cmd_migrate_legacy_json)
 
+    p_sync = sub.add_parser(
+        "sync-identities",
+        help="Artists/Provider, die nur in der DB existieren (z.B. über 'Artist neu' im Tag-UI), in artists.json/providers.json nachtragen",
+    )
+    p_sync.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
+    p_sync.set_defaults(func=cmd_sync_identities)
+
     p_anon = sub.add_parser("anonymize", help="Text/JSON-Dateien anonymisieren oder wiederherstellen")
     p_anon.add_argument("mode", choices=["clean", "declean"])
     p_anon.add_argument("file")
@@ -277,6 +293,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_tag.add_argument("--profile", required=True, help="Profile id")
     p_tag.add_argument("--web", action="store_true", help="Lokale Flask-Web-UI statt CLI-Dialog starten")
     p_tag.add_argument("--port", type=int, default=5151, help="Port für --web (Standard: 5151)")
+    p_tag.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
     p_tag.set_defaults(func=cmd_tag)
 
     p_dashboard = sub.add_parser("dashboard", help="Lokales Web-Dashboard für alle Schritte starten")

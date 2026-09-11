@@ -5,11 +5,12 @@ __pycache__/
 .DS_Store
 
 # lokale/sensible Daten, nie committen (überall im Repo, nicht nur config/)
+# Pattern deckt auch Backup-/Zwischenkopien ab (z.B. artists.json.backup-...)
 afss.db
-**/artists.json
-**/providers.json
-**/mapping.json
-*.mapping.json
+afss.db-*
+**/artists.json*
+**/providers.json*
+**/mapping.json*
 plan_*.csv
 
 # echte Profile verraten Laufwerksnamen + Ordnerkategorien -> lokal halten,

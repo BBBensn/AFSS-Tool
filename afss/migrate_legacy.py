@@ -73,3 +73,61 @@ def migrate_legacy_json(config_dir: Path, db_path: Path | None = None) -> dict:
     conn.close()
 
     return {"artists": artist_result, "providers": provider_result}
+
+
+def _sync_kind_to_json(cur, config_dir: Path, kind: str, table: str, alias_table: str, fk_col: str) -> dict:
+    filename, list_key = {"artist": ("artists.json", "artists"), "provider": ("providers.json", "providers")}[kind]
+    json_path = Path(config_dir) / filename
+
+    if json_path.exists():
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+    else:
+        data = {}
+    data.setdefault(list_key, [])
+    entries = data[list_key]
+    existing_ids = {e.get("id") for e in entries}
+
+    cur.execute(f"SELECT id, canonical_name FROM {table}")
+    added = 0
+    for entity_id, canonical_name in cur.fetchall():
+        if entity_id in existing_ids:
+            continue
+
+        cur.execute(f"SELECT alias_raw FROM {alias_table} WHERE {fk_col} = ?", (entity_id,))
+        aliases = sorted({row[0] for row in cur.fetchall() if row[0] and row[0] != canonical_name})
+
+        entry = {
+            "id": entity_id,
+            "canonical_name": canonical_name,
+            "aliases": aliases,
+            "default_tags": {},
+            "active": True,
+        }
+        if kind == "artist":
+            entry["real_name"] = ""
+            entry["notes"] = ""
+        entries.append(entry)
+        added += 1
+
+    if added:
+        tmp_path = json_path.with_suffix(".json.tmp")
+        tmp_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp_path.replace(json_path)
+
+    return {"added": added, "total_in_json": len(entries)}
+
+
+def sync_db_identities_to_json(config_dir: Path, db_path: Path | None = None) -> dict:
+    """Ergänzt artists.json/providers.json um Identitäten, die in der SQLite-DB existieren
+    (meist über 'Artist neu'/'Provider neu' im Tag-UI angelegt), aber dort noch fehlen - mit
+    ihren bekannten Aliases. Bestehende JSON-Einträge werden nie verändert, nur ergänzt.
+    Idempotent: bereits vorhandene Einträge (per id) werden übersprungen."""
+    config_dir = Path(config_dir)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+
+    artist_result = _sync_kind_to_json(cur, config_dir, "artist", "artists", "artist_aliases", "artist_id")
+    provider_result = _sync_kind_to_json(cur, config_dir, "provider", "providers", "provider_aliases", "provider_id")
+
+    conn.close()
+    return {"artists": artist_result, "providers": provider_result}

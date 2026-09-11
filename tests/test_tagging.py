@@ -1,3 +1,5 @@
+import json
+
 from afss.db import get_connection, init_schema
 from afss.tagging import (
     assign_to_existing_entity,
@@ -172,6 +174,77 @@ def test_set_trash_is_idempotent(tmp_path):
     cur.execute("SELECT COUNT(*) FROM trash_folder_names")
     assert cur.fetchone()[0] == 1
     conn.close()
+
+
+def test_assign_to_new_entity_writes_through_to_artists_json(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    init_schema(db_path)
+    unresolved_id = _seed_unresolved(db_path, folder_name="Some Folder Name")
+
+    entity_id, conflict = assign_to_new_entity(
+        unresolved_id, "artist", "Some Artist", db_path, config_dir=config_dir
+    )
+
+    assert conflict is None
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    entry = next(a for a in data["artists"] if a["id"] == entity_id)
+    assert entry["canonical_name"] == "Some Artist"
+    assert entry["aliases"] == ["Some Folder Name"]
+    assert entry["active"] is True
+
+
+def test_assign_to_new_entity_without_config_dir_skips_json(tmp_path):
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    unresolved_id = _seed_unresolved(db_path, folder_name="No Json")
+
+    # kein config_dir übergeben -> darf nicht crashen, JSON bleibt einfach unangetastet
+    entity_id, conflict = assign_to_new_entity(unresolved_id, "artist", "No Json Artist", db_path)
+    assert conflict is None
+    assert entity_id
+
+
+def test_assign_to_new_entity_preserves_existing_json_entries(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "artists.json").write_text(
+        json.dumps({"artists": [{"id": "existing", "canonical_name": "Existing Artist", "aliases": []}]}),
+        encoding="utf-8",
+    )
+    init_schema(db_path)
+    unresolved_id = _seed_unresolved(db_path, folder_name="New Folder")
+
+    assign_to_new_entity(unresolved_id, "artist", "New Artist", db_path, config_dir=config_dir)
+
+    data = json.loads((config_dir / "artists.json").read_text(encoding="utf-8"))
+    ids = {a["id"] for a in data["artists"]}
+    assert "existing" in ids and len(data["artists"]) == 2
+
+
+def test_assign_to_existing_entity_adds_alias_to_json(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "providers.json").write_text(
+        json.dumps({"providers": [{"id": "prov_1", "canonical_name": "Provider One", "aliases": []}]}),
+        encoding="utf-8",
+    )
+    init_schema(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO providers(id, canonical_name, tags_json) VALUES ('prov_1', 'Provider One', NULL)")
+    conn.commit()
+    conn.close()
+
+    unresolved_id = _seed_unresolved(db_path, folder_name="ProvFolder")
+    assign_to_existing_entity(unresolved_id, "provider", "prov_1", db_path, config_dir=config_dir)
+
+    data = json.loads((config_dir / "providers.json").read_text(encoding="utf-8"))
+    entry = next(p for p in data["providers"] if p["id"] == "prov_1")
+    assert entry["aliases"] == ["ProvFolder"]
 
 
 def test_search_entities(tmp_path):

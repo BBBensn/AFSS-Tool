@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from afss.db import get_connection
@@ -7,6 +8,64 @@ _KIND_TABLES = {
     "artist": ("artists", "artist_aliases", "artist_id", "assigned_artist"),
     "provider": ("providers", "provider_aliases", "provider_id", "assigned_provider"),
 }
+
+_JSON_FILES = {"artist": ("artists.json", "artists"), "provider": ("providers.json", "providers")}
+
+
+def _load_json_store(config_dir: Path, kind: str) -> tuple[Path, dict, str]:
+    filename, list_key = _JSON_FILES[kind]
+    path = Path(config_dir) / filename
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        data = {}
+    data.setdefault(list_key, [])
+    return path, data, list_key
+
+
+def _save_json_store(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def _append_new_entity_to_json(config_dir: Path, kind: str, entity_id: str, canonical_name: str, alias_raw: str) -> None:
+    """Hält artists.json/providers.json synchron, wenn über das Tag-UI eine neue Identität
+    angelegt wird - sonst existiert sie nur in der SQLite-DB, unsichtbar für den Artist-Editor."""
+    path, data, list_key = _load_json_store(config_dir, kind)
+    if any(e.get("id") == entity_id for e in data[list_key]):
+        return  # schon vorhanden (z.B. durch sync-identities), nicht doppelt anlegen
+
+    entry = {
+        "id": entity_id,
+        "canonical_name": canonical_name,
+        "aliases": [alias_raw] if alias_raw and alias_raw != canonical_name else [],
+        "default_tags": {},
+        "active": True,
+    }
+    if kind == "artist":
+        entry["real_name"] = ""
+        entry["notes"] = ""
+
+    data[list_key].append(entry)
+    _save_json_store(path, data)
+
+
+def _add_alias_to_json(config_dir: Path, kind: str, entity_id: str, alias_raw: str) -> None:
+    """Ergänzt einen neuen Alias am bestehenden JSON-Eintrag. Fehlt der Eintrag selbst noch dort
+    (z.B. weil sync-identities noch nicht gelaufen ist), wird nichts unternommen - kein Anlegen
+    eines Teil-Eintrags hier, das übernimmt gezielt sync-identities."""
+    if not alias_raw:
+        return
+    path, data, list_key = _load_json_store(config_dir, kind)
+    for entry in data[list_key]:
+        if entry.get("id") == entity_id:
+            aliases = entry.setdefault("aliases", [])
+            if alias_raw not in aliases:
+                aliases.append(alias_raw)
+                _save_json_store(path, data)
+            return
 
 
 def _kind_tables(kind: str):
@@ -78,6 +137,7 @@ def assign_to_new_entity(
     canonical_name: str,
     db_path: Path | None = None,
     collection_override: str | None = None,
+    config_dir: Path | None = None,
 ) -> tuple[str, dict | None]:
     table, alias_table, fk_col, status = _kind_tables(kind)
     conn = get_connection(db_path)
@@ -104,6 +164,10 @@ def assign_to_new_entity(
     )
     conn.commit()
     conn.close()
+
+    if config_dir is not None:
+        _append_new_entity_to_json(Path(config_dir), kind, entity_id, canonical_name, folder_name)
+
     return entity_id, conflict
 
 
@@ -113,6 +177,7 @@ def assign_to_existing_entity(
     entity_id: str,
     db_path: Path | None = None,
     collection_override: str | None = None,
+    config_dir: Path | None = None,
 ) -> dict | None:
     _, alias_table, fk_col, status = _kind_tables(kind)
     conn = get_connection(db_path)
@@ -133,6 +198,10 @@ def assign_to_existing_entity(
     )
     conn.commit()
     conn.close()
+
+    if config_dir is not None:
+        _add_alias_to_json(Path(config_dir), kind, entity_id, folder_name)
+
     return conflict
 
 
