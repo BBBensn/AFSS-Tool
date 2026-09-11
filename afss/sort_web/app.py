@@ -25,7 +25,10 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
 
     @bp.route("/<profile_id>/")
     def index(profile_id: str):
-        artists = get_profile_tree(profile_id, db_path)
+        sort_by = request.args.get("sort", "collection")
+        if sort_by not in ("collection", "filename", "ext", "folder"):
+            sort_by = "collection"
+        artists = get_profile_tree(profile_id, db_path, sort_by)
         all_files = [item for a in artists.values() for c in a["collections"].values() for item in c["files"]]
         present_profiles = sorted({item["profile_id"] for item in all_files})
         # Bei vielen Dateien machen von Anfang an aufgeklappte <details> die Seite spürbar
@@ -39,6 +42,7 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             present_profiles=present_profiles,
             default_open=default_open,
             total_files=len(all_files),
+            sort_by=sort_by,
         )
 
     @bp.route("/<profile_id>/search")

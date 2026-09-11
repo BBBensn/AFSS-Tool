@@ -59,14 +59,29 @@ def _ensure_entity_in_db(cur, field: str, entity_id: str, config_dir: Path) -> N
     cur.execute(f"INSERT INTO {table}(id, canonical_name, tags_json) VALUES (?, ?, NULL)", (entity_id, canonical_name))
 
 
-def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
+_SORT_OPTIONS = {
+    "collection": "m.collection_name IS NULL, m.collection_name, m.filename",
+    "filename": "m.filename",
+    "ext": "m.ext, m.filename",
+    "folder": "m.rel_path",
+}
+
+
+def get_profile_tree(profile_id: str, db_path: Path | None = None, sort_by: str = "collection") -> dict:
     """Liefert alle media_items eines Profils gruppiert nach Artist -> Collection, für die
     manuelle Sortier-Studio-Ansicht. profile_id='all' liefert profilübergreifend alle Profile auf
     einmal (gleiche Konvention wie dedupe_profile/apply_dedupe) - wichtig für Artists, die über
     mehrere Platten verteilt sind und sich nur so vollständig zusammenführen lassen. Dateien, die
     bereits als Duplikat zum Löschen/Behalten markiert wurden (dedupe_group_members.action in
     pending/delete), werden ausgeblendet - die sind nicht Teil dessen, was der Nutzer noch manuell
-    einsortieren muss."""
+    einsortieren muss.
+
+    sort_by='collection' (Standard) gruppiert wie gehabt nach Collection-Unterordnern. Jeder andere
+    Wert (filename/ext/folder) blendet die Collection-Gruppierung aus und zeigt stattdessen eine
+    flache, entsprechend sortierte Liste pro Artist - Collection bleibt dabei als Spalte pro Zeile
+    sichtbar. Damit lässt sich z.B. nach Dateityp sortieren, ohne dass Dateien aus verschiedenen
+    Collections mehr getrennt angezeigt werden."""
+    order_clause = _SORT_OPTIONS.get(sort_by, _SORT_OPTIONS["collection"])
     conn = get_connection(db_path)
     cur = conn.cursor()
     where_clause = "dgm.media_item_id IS NULL" if profile_id == "all" else "m.profile_id = ? AND dgm.media_item_id IS NULL"
@@ -81,7 +96,7 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
         LEFT JOIN providers p ON p.id = m.provider_id
         LEFT JOIN dedupe_group_members dgm ON dgm.media_item_id = m.id AND dgm.action IN ('pending', 'delete')
         WHERE {where_clause}
-        ORDER BY a.canonical_name IS NULL, a.canonical_name, m.collection_name IS NULL, m.collection_name, m.filename
+        ORDER BY a.canonical_name IS NULL, a.canonical_name, {order_clause}
         """,
         params,
     )
@@ -117,14 +132,22 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None) -> dict:
             artist_key,
             {"artist_id": artist_id, "artist_name": artist_name or "(kein Artist zugeordnet)", "collections": {}},
         )
-        collection_key = collection_name or "_none"
-        entry = artist_entry["collections"].setdefault(collection_key, {"collection_name": collection_name, "files": []})
+        if sort_by == "collection":
+            collection_key = collection_name or "_none"
+            bucket_label = collection_name
+        else:
+            # Flache Ansicht: eine einzige Liste pro Artist statt Collection-Unterordnern,
+            # sortiert nach dem gewählten Kriterium - Collection bleibt als Spalte pro Zeile sichtbar.
+            collection_key = "_flat"
+            bucket_label = None
+        entry = artist_entry["collections"].setdefault(collection_key, {"collection_name": bucket_label, "files": []})
         entry["files"].append(
             {
                 "id": item_id,
                 "filename": filename,
                 "rel_path": rel_path,
                 "media_type": media_type,
+                "collection_name": collection_name,
                 "provider_id": provider_id,
                 "provider_name": provider_name,
                 "title_override": title_override,

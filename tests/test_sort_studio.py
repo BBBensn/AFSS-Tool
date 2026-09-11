@@ -48,6 +48,48 @@ def _seed(db_path):
     conn.close()
 
 
+def test_get_profile_tree_sort_by_ext_flattens_collections(tmp_path):
+    """Kernszenario: mehrere Collections eines Artists sollen sortierbar durchmischt werden
+    (z.B. nach Dateityp), statt strikt nach Collection getrennt zu bleiben."""
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET ext = '.mp4' WHERE id IN (1, 2)")
+    cur.execute(
+        "INSERT INTO media_items(id, profile_id, path, rel_path, filename, ext, artist_id, collection_name, scanned_at) "
+        "VALUES (4, 'p1', '/a/pic.jpg', 'a/pic.jpg', 'pic.jpg', '.jpg', 'artist_1', 'Shoot B', '2020-01-01')"
+    )
+    conn.commit()
+    conn.close()
+
+    tree = get_profile_tree("p1", db_path, sort_by="ext")
+
+    collections = tree["artist_1"]["collections"]
+    assert set(collections.keys()) == {"_flat"}
+    files = collections["_flat"]["files"]
+    assert [f["filename"] for f in files] == ["pic.jpg", "1.mp4", "2.mp4"]
+    # Collection bleibt trotzdem pro Zeile sichtbar
+    assert {f["collection_name"] for f in files} == {"Shoot A", "Shoot B"}
+
+
+def test_get_profile_tree_default_sort_still_groups_by_collection(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO media_items(id, profile_id, path, rel_path, filename, artist_id, collection_name, scanned_at) "
+        "VALUES (4, 'p1', '/a/pic.jpg', 'a/pic.jpg', 'pic.jpg', 'artist_1', 'Shoot B', '2020-01-01')"
+    )
+    conn.commit()
+    conn.close()
+
+    tree = get_profile_tree("p1", db_path)  # sort_by default = "collection"
+
+    assert set(tree["artist_1"]["collections"].keys()) == {"Shoot A", "Shoot B"}
+
+
 def test_get_profile_tree_all_merges_artist_split_across_profiles(tmp_path):
     """Kernszenario der globalen Sortierung: derselbe Artist hat Dateien auf zwei Platten - mit
     profile_id='all' landen sie in derselben Artist-Gruppe statt getrennt pro Profil."""

@@ -112,6 +112,30 @@ def test_index_renders_tree(tmp_path):
     assert b"1.mp4" in resp.data
 
 
+def test_index_accepts_sort_query_param(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/?sort=filename")
+
+    assert resp.status_code == 200
+    assert b'value="filename" selected' in resp.data
+
+
+def test_index_falls_back_to_collection_for_unknown_sort_value(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/?sort=nonsense")
+
+    assert resp.status_code == 200
+    assert b'value="collection" selected' in resp.data
+
+
 def test_root_redirects_to_sort_index(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

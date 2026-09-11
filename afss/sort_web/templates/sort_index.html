@@ -51,7 +51,7 @@
   .dissolve-btn { margin-left: 0.6rem; padding: 0.1rem 0.5rem; font-size: 0.75rem; cursor: pointer;
     border: 1px solid var(--border); border-radius: 4px; background: var(--btn-bg); color: var(--fg); }
   .dissolve-btn:hover { background: var(--btn-hover); }
-  .item-row { display: grid; grid-template-columns: auto 2fr 7rem 6rem 9rem 9rem 9rem; gap: 0.6rem; align-items: center;
+  .item-row { display: grid; grid-template-columns: auto 2fr 7rem 7rem 6rem 9rem 9rem 9rem; gap: 0.6rem; align-items: center;
     padding: 0.3rem 0.5rem 0.3rem 1.5rem; border-top: 1px solid var(--border); }
   .item-row .filename { font-size: 0.9rem; }
   .item-row .rel-path { font-size: 0.75rem; color: var(--muted); }
@@ -84,9 +84,18 @@
   <div class="toolbar">
     <div class="field">
       <label for="filter-input">Filtern (nur Anzeige)</label>
-      <input type="text" id="filter-input" placeholder="Dateiname/Artist suchen...">
+      <input type="text" id="filter-input" placeholder="Dateiname, .mp4, Ordner...">
     </div>
     <button type="button" id="toggle-all-btn">Alle zuklappen</button>
+    <div class="field">
+      <label for="sort-select">Sortieren nach</label>
+      <select id="sort-select">
+        <option value="collection" {{ "selected" if sort_by == "collection" }}>Collection (Standard)</option>
+        <option value="filename" {{ "selected" if sort_by == "filename" }}>Dateiname</option>
+        <option value="ext" {{ "selected" if sort_by == "ext" }}>Dateityp</option>
+        <option value="folder" {{ "selected" if sort_by == "folder" }}>Ursprungsordner</option>
+      </select>
+    </div>
     {% if profile_id == "all" and present_profiles|length > 1 %}
     <div class="field">
       <label>Filtern nach Platte</label>
@@ -179,6 +188,7 @@
   <div class="item-row header-row">
     <div></div>
     <div>Datei{% if profile_id == "all" %} / Platte{% endif %}</div>
+    <div>Collection</div>
     <div>Provider</div>
     <div>Status</div>
     <div>Co-Artists</div>
@@ -193,14 +203,18 @@
     <details class="collection" {% if default_open %}open{% endif %}>
       <summary>
         <input type="checkbox" class="select-scope" onclick="event.stopPropagation()">
-        {{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})
-        {% if collection.collection_name %}
-        <button type="button" class="dissolve-btn" data-collection="{{ collection.collection_name }}"
-                onclick="event.stopPropagation()">Auflösen → Tag</button>
+        {% if sort_by == "collection" %}
+          {{ collection.collection_name or "(keine Collection)" }} ({{ collection.files|length }})
+          {% if collection.collection_name %}
+          <button type="button" class="dissolve-btn" data-collection="{{ collection.collection_name }}"
+                  onclick="event.stopPropagation()">Auflösen → Tag</button>
+          {% endif %}
+        {% else %}
+          Alle Dateien ({{ collection.files|length }})
         {% endif %}
       </summary>
       {% for item in collection.files %}
-      <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename)|lower }}" data-profile="{{ item.profile_id }}">
+      <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename ~ ' ' ~ item.rel_path)|lower }}" data-profile="{{ item.profile_id }}">
         <input type="checkbox" name="item_id" value="{{ item.id }}">
         <div>
           <div class="filename">
@@ -210,6 +224,7 @@
           </div>
           <div class="rel-path">{{ item.rel_path }}</div>
         </div>
+        <div class="col-value {{ 'col-empty' if not item.collection_name }}">{{ item.collection_name or "—" }}</div>
         <div class="col-value {{ 'col-empty' if not item.provider_name }}">{{ item.provider_name or "—" }}</div>
         <div class="col-value {{ 'col-empty' if item.item_status == 'active' }}">
           {{ "—" if item.item_status == "active" else item.item_status }}
@@ -309,10 +324,21 @@ function applyFilters() {
     ? Array.from(profileBoxes).filter(function (b) { return b.checked; }).map(function (b) { return b.value; })
     : null;
 
-  document.querySelectorAll('.item-row').forEach(function (row) {
+  // .header-row ist auch ein .item-row (fürs Grid-Layout), hat aber kein data-search/data-profile -
+  // muss hier ausgeschlossen werden, sonst bricht die Filterung mit einem Fehler ab.
+  document.querySelectorAll('.item-row:not(.header-row)').forEach(function (row) {
     const matchesText = !q || row.dataset.search.includes(q);
     const matchesProfile = !activeProfiles || activeProfiles.includes(row.dataset.profile);
-    row.style.display = matchesText && matchesProfile ? '' : 'none';
+    const visible = matchesText && matchesProfile;
+    row.style.display = visible ? '' : 'none';
+    if (visible && q) {
+      // Treffer in eingeklappten Gruppen wären sonst unsichtbar, obwohl der Filter "passt".
+      let details = row.closest('details');
+      while (details) {
+        details.open = true;
+        details = details.parentElement ? details.parentElement.closest('details') : null;
+      }
+    }
   });
 }
 
@@ -323,6 +349,12 @@ document.getElementById('filter-input').addEventListener('input', function () {
 });
 document.querySelectorAll('.profile-filter-box').forEach(function (box) {
   box.addEventListener('change', applyFilters);
+});
+
+document.getElementById('sort-select').addEventListener('change', function () {
+  const url = new URL(window.location.href);
+  url.searchParams.set('sort', this.value);
+  window.location.href = url.toString();
 });
 
 document.getElementById('toggle-all-btn').addEventListener('click', function () {
