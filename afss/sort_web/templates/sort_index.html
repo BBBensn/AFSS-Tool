@@ -115,7 +115,13 @@
   .item-row input[type=text] { width: 100%; }
   .header-row { font-weight: 600; font-size: 0.78rem; color: var(--muted); text-transform: uppercase;
     letter-spacing: 0.03em; border: none; border-bottom: 2px solid var(--border); padding-left: 1.5rem;
-    margin-bottom: 0.5rem; }
+    margin-bottom: 0.5rem; background: var(--bg); }
+  .header-row.pinned { position: sticky; z-index: 4; padding-top: 0.4rem; }
+  .header-pin-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.4rem; height: 1.4rem;
+    padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--btn-bg); color: var(--muted);
+    cursor: pointer; text-transform: none; font-weight: 400; letter-spacing: normal; }
+  .header-pin-btn:hover { background: var(--btn-hover); color: var(--fg); }
+  .header-row.pinned .header-pin-btn { color: var(--accent); border-color: var(--accent-border); }
 </style>
 </head>
 <body>
@@ -320,8 +326,10 @@
             formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" style="display:none;"></button>
   </div>
 
-  <div class="item-row header-row">
-    <div></div>
+  <div class="item-row header-row" id="table-header-row">
+    <div>
+      <button type="button" class="header-pin-btn" id="header-pin-btn" title="Kopfzeile beim Scrollen fixieren">🔓</button>
+    </div>
     <div>Datei{% if profile_id == "all" %} / Platte{% endif %}</div>
     <div>Artist</div>
     <div>Collection</div>
@@ -383,8 +391,10 @@
             {% endfor %}
           {% else %}—{% endif %}
         </div>
-        <input type="text" name="title_{{ item.id }}" placeholder="—" value="{{ item.title_override or '' }}" {% if is_locked %}disabled{% endif %}>
-        <input type="text" name="tags_{{ item.id }}" placeholder="—" value="{{ item.tags }}" {% if is_locked %}disabled{% endif %}>
+        <input type="text" class="title-tags-input" name="title_{{ item.id }}" placeholder="—" value="{{ item.title_override or '' }}"
+               title="{{ item.title_override or '' }}" {% if is_locked %}disabled{% endif %}>
+        <input type="text" class="title-tags-input" name="tags_{{ item.id }}" placeholder="—" value="{{ item.tags }}"
+               title="{{ item.tags }}" {% if is_locked %}disabled{% endif %}>
       </div>
       {% endfor %}
     </details>
@@ -398,6 +408,7 @@
 
 <script>
 const UI_STATE_KEY = 'afss_sort_ui_state_{{ profile_id }}';
+const HEADER_PIN_KEY = 'afss_sort_header_pinned';
 const SEARCH_URL = '{{ url_for("sort.search", profile_id=profile_id) }}';
 const BULK_URL = '{{ url_for("sort.bulk", profile_id=profile_id) }}';
 const INDEX_URL = '{{ url_for("sort.index", profile_id=profile_id) }}';
@@ -515,10 +526,46 @@ function applyFilters() {
   });
 }
 
+// Haelt die fixierte Kopfzeile direkt unter der (ebenfalls sticky) Toolbar - deren Hoehe aendert
+// sich je nach Fensterbreite (Toolbar-Gruppen brechen unterschiedlich um), daher hier gemessen
+// statt fest verdrahtet.
+function updateHeaderPinOffset() {
+  const header = document.getElementById('table-header-row');
+  const toolbar = document.querySelector('.toolbar');
+  if (!header || !toolbar || !header.classList.contains('pinned')) return;
+  header.style.top = toolbar.getBoundingClientRect().height + 'px';
+}
+
+function setHeaderPinned(pinned, persist) {
+  const header = document.getElementById('table-header-row');
+  const btn = document.getElementById('header-pin-btn');
+  if (!header || !btn) return;
+  header.classList.toggle('pinned', pinned);
+  header.style.top = pinned ? '0px' : '';
+  btn.textContent = pinned ? '🔒' : '🔓';
+  btn.title = pinned ? 'Kopfzeile wieder mitscrollen lassen' : 'Kopfzeile beim Scrollen fixieren';
+  if (persist !== false) {
+    try { localStorage.setItem(HEADER_PIN_KEY, pinned ? '1' : '0'); } catch (e) { /* privater Modus o.ä. */ }
+  }
+  if (pinned) updateHeaderPinOffset();
+}
+
 // Bindet alle Event-Listener der aktuell im DOM stehenden Elemente neu - wird einmal beim ersten
 // Laden aufgerufen und danach nach jedem performSwap() erneut, weil die alten DOM-Knoten (und
 // damit ihre Listener) beim Austausch verworfen wurden.
 function initPage() {
+  let pinPreference = false;
+  try { pinPreference = localStorage.getItem(HEADER_PIN_KEY) === '1'; } catch (e) { /* privater Modus o.ä. */ }
+  setHeaderPinned(pinPreference, false);
+
+  const pinBtn = document.getElementById('header-pin-btn');
+  if (pinBtn) {
+    pinBtn.addEventListener('click', function () {
+      const header = document.getElementById('table-header-row');
+      setHeaderPinned(!header.classList.contains('pinned'));
+    });
+  }
+
   function setupSearch(inputId, resultsId, hiddenId, kind, createBtnId) {
     const input = document.getElementById(inputId);
     const results = document.getElementById(resultsId);
@@ -559,6 +606,77 @@ function initPage() {
   setupSearch('artist-search', 'artist-results', 'artist-target-id', 'artist', 'artist-create-btn');
   setupSearch('provider-search', 'provider-results', 'provider-target-id', 'provider', 'provider-create-btn');
   setupSearch('co-artist-search', 'co-artist-results', 'co-artist-target-id', 'artist', 'co-artist-create-btn');
+
+  // Tags sind reiner Freitext (keine eigene Tabelle wie Artists/Providers) - Autocomplete dient nur
+  // dazu, versehentliche Nah-Duplikate zu vermeiden (z.B. "fav" statt schon vorhandenem "Favorite").
+  // Ein neuer Tag lässt sich weiterhin einfach eintippen, ganz ohne separaten "Neu anlegen"-Schritt.
+  // Das Feld ist kommasepariert - Autocomplete bezieht sich immer nur auf das zuletzt begonnene
+  // (noch nicht durch Komma abgeschlossene) Segment. Das Dropdown wird an document.body gehängt
+  // (position: fixed, per getBoundingClientRect positioniert) statt fest im Markup zu stehen, damit
+  // nicht für jede der potenziell tausenden Zeilen ein eigenes leeres Dropdown-Element vorgerendert
+  // werden muss.
+  function setupTagAutocomplete(input) {
+    if (!input) return;
+    let dropdown = null;
+    let timer = null;
+
+    function closeDropdown() {
+      if (dropdown) { dropdown.remove(); dropdown = null; }
+    }
+
+    function applySelection(tag) {
+      const segments = input.value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
+      segments[segments.length - 1] = tag;
+      input.value = segments.join(', ') + ', ';
+      input.title = input.value;
+      closeDropdown();
+      input.focus();
+    }
+
+    function openDropdown(items) {
+      closeDropdown();
+      if (!items.length) return;
+      const rect = input.getBoundingClientRect();
+      dropdown = document.createElement('div');
+      dropdown.className = 'search-results';
+      dropdown.style.position = 'fixed';
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.top = rect.bottom + 'px';
+      dropdown.style.width = rect.width + 'px';
+      dropdown.style.display = 'block';
+      items.forEach(function (tag) {
+        const row = document.createElement('div');
+        row.textContent = tag;
+        // mousedown statt click: feuert vor dem blur-Handler des Inputs, sonst wäre das Dropdown
+        // schon geschlossen (und der Klick damit wirkungslos), bevor er verarbeitet wird.
+        row.addEventListener('mousedown', function (evt) {
+          evt.preventDefault();
+          applySelection(tag);
+        });
+        dropdown.appendChild(row);
+      });
+      document.body.appendChild(dropdown);
+    }
+
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      const segments = input.value.split(',');
+      const current = segments[segments.length - 1].trim();
+      if (!current) { closeDropdown(); return; }
+      timer = setTimeout(function () {
+        fetch(SEARCH_URL + '?kind=tag&q=' + encodeURIComponent(current))
+          .then(function (r) { return r.json(); })
+          .then(function (items) { openDropdown(items.map(function (i) { return i.name; })); });
+      }, 200);
+    });
+    input.addEventListener('blur', function () {
+      // Kurze Verzoegerung, damit der mousedown-Handler eines Dropdown-Eintrags zuerst feuert.
+      setTimeout(closeDropdown, 150);
+    });
+  }
+
+  setupTagAutocomplete(document.getElementById('new-tags-input'));
+  document.querySelectorAll('input[name^="tags_"]').forEach(setupTagAutocomplete);
 
   document.querySelectorAll('.remove-co-artist').forEach(function (el) {
     el.addEventListener('click', function () {
@@ -634,6 +752,13 @@ function initPage() {
     });
   }
 
+  // Titel-Override/Tags-Felder sind in der Tabelle sehr schmal und daher oft nicht vollstaendig
+  // lesbar - der native title-Tooltip zeigt den ganzen Text bei Hover, wird hier live mitgefuehrt,
+  // damit er auch nach einer Aenderung (vor dem Speichern) den aktuellen Wert zeigt.
+  document.querySelectorAll('.title-tags-input').forEach(function (inp) {
+    inp.addEventListener('input', function () { inp.title = inp.value; });
+  });
+
   document.querySelectorAll('.select-scope').forEach(function (scopeBox) {
     scopeBox.addEventListener('change', function () {
       const details = scopeBox.closest('details');
@@ -684,6 +809,10 @@ document.addEventListener('click', function (evt) {
     if (el.parentElement && !el.parentElement.contains(evt.target)) el.style.display = 'none';
   });
 });
+
+// Die Toolbar-Hoehe (und damit der Offset der fixierten Kopfzeile) aendert sich beim Umbrechen der
+// Gruppen mit der Fensterbreite - einmalig gebunden, gilt fuer jeden Swap gleichermassen.
+window.addEventListener('resize', updateHeaderPinOffset);
 
 initPage();
 

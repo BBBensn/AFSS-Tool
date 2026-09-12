@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.15.0`
+- Version: `1.16.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.15.0`
+- Aktuell: `v1.16.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -77,6 +77,9 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     form-data - genau das, was das Sortier-Studio-JS per `fetch()`+`FormData` sendet, faellt beim
     Ueberschreiten *stillschweigend* auf ein leeres Formular zurueck statt einen Fehler zu werfen);
     Doppel-Klick-Schutz + "Wird gespeichert..."-Hinweis; Dev-Server laeuft jetzt `threaded=True`
+  - `v1.16.0` — Tabellen-Kopfzeile per Toggle fixierbar (bleibt beim Scrollen stehen); Titel-
+    Override/Tags-Felder zeigen den vollen Text als Hover-Tooltip; neue Autocomplete fuer Tags
+    (Toolbox + pro Zeile), dedupliziert aus bereits vergebenen Werten
 
 ## Changelogs & Dokumentation
 

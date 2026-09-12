@@ -375,3 +375,20 @@ def set_artist_locked(artist_key: str, locked: bool, db_path: Path | None = None
         cur.execute("DELETE FROM sort_studio_locks WHERE artist_key = ?", (artist_key,))
     conn.commit()
     conn.close()
+
+
+def search_tags(query: str, db_path: Path | None = None, limit: int = 20) -> list[str]:
+    """Liefert bereits vergebene Tags, die zum Suchbegriff passen - fuer Autocomplete im
+    Sortier-Studio, damit nicht versehentlich Nah-Duplikate entstehen (z.B. 'fav' neben
+    'Favorite'). Tags werden anders als Artists/Providers nicht in einer eigenen Tabelle gepflegt,
+    sondern liegen als kommaseparierte Freitext-Liste in media_items.tags - daher hier direkt aus
+    allen vorhandenen Werten aufgesplittet und dedupliziert statt per JOIN nachgeschlagen."""
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT tags FROM media_items WHERE tags IS NOT NULL AND tags != ''")
+    all_tags = {t.strip() for (raw,) in cur.fetchall() for t in raw.split(",") if t.strip()}
+    conn.close()
+
+    q = query.strip().lower()
+    matches = sorted(t for t in all_tags if q in t.lower()) if q else sorted(all_tags)
+    return matches[:limit]

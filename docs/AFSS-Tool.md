@@ -64,7 +64,12 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   Klick, der sichtbar nichts tat. Ein `isBusy`-Flag im Frontend verhindert außerdem parallele
   Doppel-Anfragen bei ungeduldigen Mehrfachklicks, mit sichtbarem "Wird gespeichert..."-Hinweis; der
   Dev-Server läuft mit `threaded=True`, damit eine große Anfrage nicht den einzigen Worker blockiert.
-  Die Dateitabelle zeigt pro Zeile zusätzlich den zugeordneten Artist-Namen als eigene Spalte
+  Die Dateitabelle zeigt pro Zeile zusätzlich den zugeordneten Artist-Namen als eigene Spalte. Die
+  Tabellen-Kopfzeile lässt sich per Toggle fixieren (bleibt beim Scrollen unter der Toolbar stehen,
+  Offset wird per JS an die aktuelle Toolbar-Höhe angepasst), Titel-Override/Tags-Felder zeigen den
+  vollen Wert als Hover-Tooltip. `search_tags()` liefert Autocomplete-Vorschläge für Tags (dedupliziert
+  aus der kommaseparierten `media_items.tags`-Spalte, da Tags anders als Artists/Providers keine
+  eigene Tabelle haben) - genutzt sowohl im Toolbox-Tags-Feld als auch pro Zeile
 
 ## Aktueller Datenstand (Momentaufnahme)
 

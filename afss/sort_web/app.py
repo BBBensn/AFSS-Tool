@@ -14,6 +14,7 @@ from afss.sort_studio import (
     remove_co_artist,
     save_tags,
     save_title_overrides,
+    search_tags,
     set_artist_locked,
     set_item_status,
 )
@@ -66,7 +67,11 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         kind = request.args.get("kind", "artist")
         query = request.args.get("q", "")
         try:
-            matches = search_json_entities(kind, query, config_dir) if config_dir is not None else []
+            if kind == "tag":
+                # Tags haben keine eigene ID (reiner Freitext) - id=name, das JS braucht nur den Text.
+                matches = [(t, t) for t in search_tags(query, db_path)]
+            else:
+                matches = search_json_entities(kind, query, config_dir) if config_dir is not None else []
         except Exception:
             # Antwortet bewusst leer statt mit der HTML-Fehlerseite des allgemeinen Error-Handlers -
             # das JS hier erwartet JSON (r.json()), eine HTML-Antwort würde nur einen zusätzlichen,

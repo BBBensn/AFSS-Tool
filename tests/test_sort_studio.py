@@ -13,6 +13,7 @@ from afss.sort_studio import (
     remove_co_artist,
     save_tags,
     save_title_overrides,
+    search_tags,
     set_artist_locked,
     set_item_status,
 )
@@ -502,6 +503,35 @@ def test_save_title_overrides_sets_and_clears(tmp_path):
     cur.execute("SELECT title_override FROM media_items WHERE id = 2")
     assert cur.fetchone() == (None,)
     conn.close()
+
+
+def test_search_tags_finds_matching_substring_case_insensitive(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Favorite, review' WHERE id = 1")
+    cur.execute("UPDATE media_items SET tags = 'fav, 1080p' WHERE id = 2")
+    conn.commit()
+    conn.close()
+
+    assert search_tags("fav", db_path) == ["Favorite", "fav"]
+    assert search_tags("FAV", db_path) == ["Favorite", "fav"]
+    assert search_tags("1080", db_path) == ["1080p"]
+    assert search_tags("nope", db_path) == []
+
+
+def test_search_tags_deduplicates_and_returns_all_when_query_empty(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'fav, solo' WHERE id = 1")
+    cur.execute("UPDATE media_items SET tags = 'fav, anal' WHERE id = 2")
+    conn.commit()
+    conn.close()
+
+    assert search_tags("", db_path) == ["anal", "fav", "solo"]
 
 
 def test_set_artist_locked_and_get_locked_artist_keys(tmp_path):

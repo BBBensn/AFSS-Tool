@@ -161,6 +161,23 @@ def test_search_returns_matching_artists(tmp_path):
     assert resp.get_json() == [{"id": "artist_2", "name": "Artist Two"}]
 
 
+def test_search_kind_tag_returns_matching_existing_tags(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Favorite, review' WHERE id = 1")
+    conn.commit()
+    conn.close()
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/search?kind=tag&q=fav")
+
+    assert resp.status_code == 200
+    assert resp.get_json() == [{"id": "Favorite", "name": "Favorite"}]
+
+
 def test_search_finds_artist_that_only_exists_in_json(tmp_path):
     """Regression: Artists, die nur über den Artist-Editor angelegt wurden (nicht über die
     Tag-Queue), landen zunächst nur in artists.json, nicht in der DB - die Suche muss sie
