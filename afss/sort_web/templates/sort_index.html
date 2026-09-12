@@ -67,6 +67,7 @@
   .chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   input[type=text] { width: 100%; padding: 0.45rem 0.6rem; background: var(--input-bg); color: var(--fg); border: 1px solid var(--border);
     border-radius: 6px; font-size: 0.85rem; outline: none; }
+  input[type=text].centered-input { text-align: center; }
   .select-wrap { position: relative; display: flex; }
   select { appearance: none; -webkit-appearance: none; width: 100%; padding: 0.45rem 1.7rem 0.45rem 0.6rem;
     background: var(--input-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; outline: none; }
@@ -102,7 +103,8 @@
   .dissolve-btn { margin-left: 0.6rem; padding: 0.1rem 0.5rem; font-size: 0.75rem; cursor: pointer;
     border: 1px solid var(--border); border-radius: 4px; background: var(--btn-bg); color: var(--fg); }
   .dissolve-btn:hover { background: var(--btn-hover); }
-  .item-row { display: grid; grid-template-columns: auto 2fr 9rem 7rem 7rem 6rem 9rem 9rem 9rem; gap: 0.6rem; align-items: center;
+  :root { --item-row-columns: auto 2fr 9rem 9rem 7rem 7rem 6rem 9rem 9rem 9rem; }
+  .item-row { display: grid; grid-template-columns: var(--item-row-columns); gap: 0.6rem; align-items: center;
     padding: 0.3rem 0.5rem 0.3rem 1.5rem; border-top: 1px solid var(--border); }
   .item-row .filename { font-size: 0.9rem; }
   .item-row .rel-path { font-size: 0.75rem; color: var(--muted); }
@@ -122,6 +124,12 @@
     cursor: pointer; text-transform: none; font-weight: 400; letter-spacing: normal; }
   .header-pin-btn:hover { background: var(--btn-hover); color: var(--fg); }
   .header-row.pinned .header-pin-btn { color: var(--accent); border-color: var(--accent-border); }
+  .header-controls { display: flex; gap: 0.3rem; position: relative; }
+  .columns-menu { position: absolute; top: 120%; left: 0; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.4rem 0.6rem; z-index: 10; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
+  .columns-menu label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 400;
+    text-transform: none; letter-spacing: normal; color: var(--fg); padding: 0.2rem 0; cursor: pointer; }
+  .columns-menu input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
 </style>
 </head>
 <body>
@@ -168,10 +176,9 @@
     <div class="tool-groups">
 
       <div class="tool-group">
-        <div class="tool-group-label">Ansicht</div>
+        <div class="tool-group-label">Filtern</div>
         <div class="tool-field-row">
-          <div class="tool-sublabel">Filtern</div>
-          <input type="text" id="filter-input" placeholder="Dateiname, .mp4, Ordner...">
+          <input type="text" id="filter-input" class="centered-input" placeholder="Dateiname, .mp4, Ordner...">
         </div>
       </div>
 
@@ -229,6 +236,26 @@
           <button type="submit" class="icon-btn icon-btn-danger" name="action" value="clear_provider"
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
                   onclick="return confirm('Provider-Zuordnung für die Auswahl entfernen?');" title="Provider entfernen">{{ icon('close') }}</button>
+        </div>
+      </div>
+
+      <div class="tool-group">
+        <div class="tool-group-label">Studio</div>
+        <div class="tool-field-row">
+          <input type="text" id="studio-search" name="studio_search_text" autocomplete="off" placeholder="Studio suchen oder neu...">
+          <input type="hidden" name="studio_target_id" id="studio-target-id">
+          <div class="search-results" id="studio-results"></div>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="icon-btn" name="action" value="set_studio"
+                  formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" title="Studio setzen">{{ icon('check') }}</button>
+          <button type="submit" class="icon-btn" name="action" value="create_and_set_studio" id="studio-create-btn" disabled
+                  formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+                  onclick="return confirm('Neues Studio anlegen und der Auswahl zuweisen?');"
+                  title="Neu anlegen &amp; setzen (kein Treffer bei der Suche? legt den eingegebenen Namen neu an)">{{ icon('add') }}</button>
+          <button type="submit" class="icon-btn icon-btn-danger" name="action" value="clear_studio"
+                  formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+                  onclick="return confirm('Studio-Zuordnung für die Auswahl entfernen?');" title="Studio entfernen">{{ icon('close') }}</button>
         </div>
       </div>
 
@@ -327,17 +354,20 @@
   </div>
 
   <div class="item-row header-row" id="table-header-row">
-    <div>
+    <div class="header-controls">
       <button type="button" class="header-pin-btn" id="header-pin-btn" title="Kopfzeile beim Scrollen fixieren">🔓</button>
+      <button type="button" class="header-pin-btn" id="columns-toggle-btn" title="Spalten ein-/ausblenden">▤</button>
+      <div class="columns-menu" id="columns-menu" hidden></div>
     </div>
     <div>Datei{% if profile_id == "all" %} / Platte{% endif %}</div>
-    <div>Artist</div>
-    <div>Collection</div>
-    <div>Provider</div>
-    <div>Status</div>
-    <div>Co-Artists</div>
-    <div>Titel-Override</div>
-    <div>Tags</div>
+    <div class="col-artist">Artist</div>
+    <div class="col-studio">Studio</div>
+    <div class="col-collection">Collection</div>
+    <div class="col-provider">Provider</div>
+    <div class="col-status">Status</div>
+    <div class="col-coartists">Co-Artists</div>
+    <div class="col-titel">Titel-Override</div>
+    <div class="col-tags">Tags</div>
   </div>
 
   {% for artist_key, artist in artists.items() %}
@@ -376,13 +406,14 @@
           </div>
           <div class="rel-path">{{ item.rel_path }}</div>
         </div>
-        <div class="col-value {{ 'col-empty' if not artist.artist_id }}">{{ artist.artist_name }}</div>
-        <div class="col-value {{ 'col-empty' if not item.collection_name }}">{{ item.collection_name or "—" }}</div>
-        <div class="col-value {{ 'col-empty' if not item.provider_name }}">{{ item.provider_name or "—" }}</div>
-        <div class="col-value {{ 'col-empty' if item.item_status == 'active' }}">
+        <div class="col-value col-artist {{ 'col-empty' if not artist.artist_id }}">{{ artist.artist_name }}</div>
+        <div class="col-value col-studio {{ 'col-empty' if not item.studio_name }}">{{ item.studio_name or "—" }}</div>
+        <div class="col-value col-collection {{ 'col-empty' if not item.collection_name }}">{{ item.collection_name or "—" }}</div>
+        <div class="col-value col-provider {{ 'col-empty' if not item.provider_name }}">{{ item.provider_name or "—" }}</div>
+        <div class="col-value col-status {{ 'col-empty' if item.item_status == 'active' }}">
           {{ "—" if item.item_status == "active" else item.item_status }}
         </div>
-        <div class="col-value {{ 'col-empty' if not item.co_artists }}">
+        <div class="col-value col-coartists {{ 'col-empty' if not item.co_artists }}">
           {% if item.co_artists %}
             {% for co in item.co_artists %}
               <span class="manual-badge">+ {{ co.name }}
@@ -391,9 +422,9 @@
             {% endfor %}
           {% else %}—{% endif %}
         </div>
-        <input type="text" class="title-tags-input" name="title_{{ item.id }}" placeholder="—" value="{{ item.title_override or '' }}"
+        <input type="text" class="title-tags-input col-titel" name="title_{{ item.id }}" placeholder="—" value="{{ item.title_override or '' }}"
                title="{{ item.title_override or '' }}" {% if is_locked %}disabled{% endif %}>
-        <input type="text" class="title-tags-input" name="tags_{{ item.id }}" placeholder="—" value="{{ item.tags }}"
+        <input type="text" class="title-tags-input col-tags" name="tags_{{ item.id }}" placeholder="—" value="{{ item.tags }}"
                title="{{ item.tags }}" {% if is_locked %}disabled{% endif %}>
       </div>
       {% endfor %}
@@ -409,6 +440,21 @@
 <script>
 const UI_STATE_KEY = 'afss_sort_ui_state_{{ profile_id }}';
 const HEADER_PIN_KEY = 'afss_sort_header_pinned';
+const HIDDEN_COLUMNS_KEY = 'afss_sort_hidden_columns';
+// Je mehr Zuordnungs-Kategorien dazukommen (Studio war der Auslöser), desto voller wird die
+// Tabelle - über dieses Menü lässt sich jede optionale Spalte einzeln aus- und wieder einblenden,
+// statt das Layout mit jeder neuen Kategorie weiter zu stauchen. Checkbox/Datei bleiben immer da.
+const COLUMN_DEFS = [
+  { key: 'artist', label: 'Artist', width: '9rem' },
+  { key: 'studio', label: 'Studio', width: '9rem' },
+  { key: 'collection', label: 'Collection', width: '7rem' },
+  { key: 'provider', label: 'Provider', width: '7rem' },
+  { key: 'status', label: 'Status', width: '6rem' },
+  { key: 'coartists', label: 'Co-Artists', width: '9rem' },
+  { key: 'titel', label: 'Titel-Override', width: '9rem' },
+  { key: 'tags', label: 'Tags', width: '9rem' },
+];
+const DEFAULT_HIDDEN_COLUMNS = ['studio']; // selten gebraucht - startet eingeklappt
 const SEARCH_URL = '{{ url_for("sort.search", profile_id=profile_id) }}';
 const BULK_URL = '{{ url_for("sort.bulk", profile_id=profile_id) }}';
 const INDEX_URL = '{{ url_for("sort.index", profile_id=profile_id) }}';
@@ -550,6 +596,30 @@ function setHeaderPinned(pinned, persist) {
   if (pinned) updateHeaderPinOffset();
 }
 
+function getHiddenColumns() {
+  try {
+    const raw = localStorage.getItem(HIDDEN_COLUMNS_KEY);
+    if (raw === null) return DEFAULT_HIDDEN_COLUMNS.slice();
+    return JSON.parse(raw);
+  } catch (e) {
+    return DEFAULT_HIDDEN_COLUMNS.slice();
+  }
+}
+
+function applyColumnVisibility(hidden) {
+  const template = ['auto', '2fr'].concat(
+    COLUMN_DEFS.filter(function (c) { return hidden.indexOf(c.key) === -1; }).map(function (c) { return c.width; })
+  ).join(' ');
+  document.documentElement.style.setProperty('--item-row-columns', template);
+  COLUMN_DEFS.forEach(function (c) {
+    const isHidden = hidden.indexOf(c.key) !== -1;
+    document.querySelectorAll('.col-' + c.key).forEach(function (el) { el.style.display = isHidden ? 'none' : ''; });
+  });
+  // Kopfzeile ist ggf. fixiert - nach einer Spaltenänderung kann sich ihre Hoehe/Position nicht
+  // aendern, aber sicherheitshalber trotzdem neu ausrichten (z.B. falls Umbruch sich verschiebt).
+  updateHeaderPinOffset();
+}
+
 // Bindet alle Event-Listener der aktuell im DOM stehenden Elemente neu - wird einmal beim ersten
 // Laden aufgerufen und danach nach jedem performSwap() erneut, weil die alten DOM-Knoten (und
 // damit ihre Listener) beim Austausch verworfen wurden.
@@ -563,6 +633,35 @@ function initPage() {
     pinBtn.addEventListener('click', function () {
       const header = document.getElementById('table-header-row');
       setHeaderPinned(!header.classList.contains('pinned'));
+    });
+  }
+
+  let hiddenColumns = getHiddenColumns();
+  applyColumnVisibility(hiddenColumns);
+
+  const columnsMenu = document.getElementById('columns-menu');
+  const columnsToggleBtn = document.getElementById('columns-toggle-btn');
+  if (columnsMenu && columnsToggleBtn) {
+    columnsMenu.innerHTML = '';
+    COLUMN_DEFS.forEach(function (c) {
+      const label = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = hiddenColumns.indexOf(c.key) === -1;
+      box.addEventListener('change', function () {
+        hiddenColumns = box.checked
+          ? hiddenColumns.filter(function (k) { return k !== c.key; })
+          : hiddenColumns.concat([c.key]);
+        try { localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(hiddenColumns)); } catch (e) { /* privater Modus o.ä. */ }
+        applyColumnVisibility(hiddenColumns);
+      });
+      label.appendChild(box);
+      label.appendChild(document.createTextNode(c.label));
+      columnsMenu.appendChild(label);
+    });
+    columnsToggleBtn.addEventListener('click', function (evt) {
+      evt.stopPropagation();
+      columnsMenu.hidden = !columnsMenu.hidden;
     });
   }
 
@@ -606,6 +705,7 @@ function initPage() {
   setupSearch('artist-search', 'artist-results', 'artist-target-id', 'artist', 'artist-create-btn');
   setupSearch('provider-search', 'provider-results', 'provider-target-id', 'provider', 'provider-create-btn');
   setupSearch('co-artist-search', 'co-artist-results', 'co-artist-target-id', 'artist', 'co-artist-create-btn');
+  setupSearch('studio-search', 'studio-results', 'studio-target-id', 'studio', 'studio-create-btn');
 
   // Tags sind reiner Freitext (keine eigene Tabelle wie Artists/Providers) - Autocomplete dient nur
   // dazu, versehentliche Nah-Duplikate zu vermeiden (z.B. "fav" statt schon vorhandenem "Favorite").
@@ -802,12 +902,18 @@ function initPage() {
   }
 }
 
-// Schließt offene Autocomplete-Dropdowns bei Klick außerhalb - einmalig delegiert gebunden
-// (nicht in initPage), sonst würde jeder Swap einen weiteren document-Listener obendrauf packen.
+// Schließt offene Autocomplete-Dropdowns und das Spalten-Menü bei Klick außerhalb - einmalig
+// delegiert gebunden (nicht in initPage), sonst würde jeder Swap einen weiteren
+// document-Listener obendrauf packen.
 document.addEventListener('click', function (evt) {
   document.querySelectorAll('.search-results').forEach(function (el) {
     if (el.parentElement && !el.parentElement.contains(evt.target)) el.style.display = 'none';
   });
+  const columnsMenu = document.getElementById('columns-menu');
+  const columnsToggleBtn = document.getElementById('columns-toggle-btn');
+  if (columnsMenu && !columnsMenu.hidden && !columnsMenu.contains(evt.target) && evt.target !== columnsToggleBtn) {
+    columnsMenu.hidden = true;
+  }
 });
 
 // Die Toolbar-Hoehe (und damit der Offset der fixierten Kopfzeile) aendert sich beim Umbrechen der

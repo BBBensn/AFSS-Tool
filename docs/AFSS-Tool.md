@@ -16,6 +16,9 @@ Ausführen erzeugt keine Duplikate), alles läuft offline/lokal ohne externe Met
   (`target_path`) → transcodiert (`transcoded_path`)
 - `artists`/`providers` + `artist_aliases`/`provider_aliases` — Identitäten und ihre bekannten
   Namensvarianten (Ordnernamen), gefüttert aus `config/artists.json`/`providers.json`
+- `studios` (+ `config/studios.json`) — Produzent, im Unterschied zu `providers` (Vertrieb). Anders
+  als Artist/Provider (noch) keine automatische Ordnername-Auflösung, nur manuelle Zuordnung im
+  Sortier-Studio (`media_items.studio_id`)
 - `unresolved_folders` — Ordnernamen, die keinem Artist/Provider zugeordnet werden konnten,
   Status: `pending` → `assigned_artist`/`assigned_provider`/`category`/`trash`/`ignored`
 - `dedupe_groups`/`dedupe_group_members` — per Datei-Hash gefundene Duplikate
@@ -69,7 +72,10 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   Offset wird per JS an die aktuelle Toolbar-Höhe angepasst), Titel-Override/Tags-Felder zeigen den
   vollen Wert als Hover-Tooltip. `search_tags()` liefert Autocomplete-Vorschläge für Tags (dedupliziert
   aus der kommaseparierten `media_items.tags`-Spalte, da Tags anders als Artists/Providers keine
-  eigene Tabelle haben) - genutzt sowohl im Toolbox-Tags-Feld als auch pro Zeile
+  eigene Tabelle haben) - genutzt sowohl im Toolbox-Tags-Feld als auch pro Zeile. Tabellen-Spalten
+  (Artist, Studio, Collection, Provider, Status, Co-Artists, Titel-Override, Tags) sind einzeln
+  ein-/ausblendbar (Menü neben dem Kopfzeilen-Pin, `localStorage`) - damit das Layout auch mit
+  künftigen weiteren Kategorien nicht zu voll wird; Studio startet standardmäßig ausgeblendet
 
 ## Aktueller Datenstand (Momentaufnahme)
 

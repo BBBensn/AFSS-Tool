@@ -4,8 +4,12 @@ from afss.db import get_connection
 from afss.normalize import normalize_name
 from afss.tagging import get_json_canonical_name, load_json_store, save_json_store
 
-_ALLOWED_BULK_FIELDS = {"artist_id", "provider_id", "collection_name"}
-_TABLE_BY_FIELD = {"artist_id": ("artists", "artist"), "provider_id": ("providers", "provider")}
+_ALLOWED_BULK_FIELDS = {"artist_id", "provider_id", "studio_id", "collection_name"}
+_TABLE_BY_FIELD = {
+    "artist_id": ("artists", "artist"),
+    "provider_id": ("providers", "provider"),
+    "studio_id": ("studios", "studio"),
+}
 _ALLOWED_ITEM_STATUS = {"active", "trash", "extra"}
 
 
@@ -89,11 +93,12 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None, sort_by: str 
     cur.execute(
         f"""
         SELECT m.id, m.filename, m.rel_path, m.media_type, m.artist_id, a.canonical_name,
-               m.provider_id, p.canonical_name, m.collection_name, m.title_override, m.manual_override,
-               m.item_status, m.tags, m.profile_id
+               m.provider_id, p.canonical_name, m.studio_id, st.canonical_name, m.collection_name,
+               m.title_override, m.manual_override, m.item_status, m.tags, m.profile_id
         FROM media_items m
         LEFT JOIN artists a ON a.id = m.artist_id
         LEFT JOIN providers p ON p.id = m.provider_id
+        LEFT JOIN studios st ON st.id = m.studio_id
         LEFT JOIN dedupe_group_members dgm ON dgm.media_item_id = m.id AND dgm.action IN ('pending', 'delete')
         WHERE {where_clause}
         ORDER BY a.canonical_name IS NULL, a.canonical_name, {order_clause}
@@ -124,8 +129,8 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None, sort_by: str 
     artists: dict[str, dict] = {}
     for (
         item_id, filename, rel_path, media_type, artist_id, artist_name,
-        provider_id, provider_name, collection_name, title_override, manual_override,
-        item_status, tags, item_profile_id,
+        provider_id, provider_name, studio_id, studio_name, collection_name,
+        title_override, manual_override, item_status, tags, item_profile_id,
     ) in rows:
         artist_key = artist_id or "_unresolved"
         artist_entry = artists.setdefault(
@@ -150,6 +155,8 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None, sort_by: str 
                 "collection_name": collection_name,
                 "provider_id": provider_id,
                 "provider_name": provider_name,
+                "studio_id": studio_id,
+                "studio_name": studio_name,
                 "title_override": title_override,
                 "manual_override": bool(manual_override),
                 "profile_id": item_profile_id,

@@ -141,6 +141,23 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
                 entity_id = create_entity("provider", name, config_dir, db_path)
                 n = bulk_update(item_ids, {"provider_id": entity_id}, db_path, config_dir)
                 flash(f"Neuer Provider '{name}' angelegt und {n} Datei(en) zugeordnet.", "ok")
+        elif action == "set_studio":
+            target_id = request.form.get("studio_target_id", "").strip()
+            if not target_id:
+                flash("Bitte zuerst ein Studio auswählen.", "error")
+            else:
+                n = bulk_update(item_ids, {"studio_id": target_id}, db_path, config_dir)
+                flash(f"{n} Datei(en) neu zugeordnet.", "ok")
+        elif action == "create_and_set_studio":
+            name = request.form.get("studio_search_text", "").strip()
+            if not name:
+                flash("Bitte einen Namen für das neue Studio eingeben.", "error")
+            elif config_dir is None:
+                flash("Kein Config-Verzeichnis konfiguriert.", "error")
+            else:
+                entity_id = create_entity("studio", name, config_dir, db_path)
+                n = bulk_update(item_ids, {"studio_id": entity_id}, db_path, config_dir)
+                flash(f"Neues Studio '{name}' angelegt und {n} Datei(en) zugeordnet.", "ok")
         elif action == "set_collection":
             collection_name = request.form.get("collection_name", "").strip() or None
             n = bulk_update(item_ids, {"collection_name": collection_name}, db_path, config_dir)
@@ -151,6 +168,9 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         elif action == "clear_provider":
             n = bulk_update(item_ids, {"provider_id": None}, db_path, config_dir)
             flash(f"{n} Datei(en): Provider entfernt.", "ok")
+        elif action == "clear_studio":
+            n = bulk_update(item_ids, {"studio_id": None}, db_path, config_dir)
+            flash(f"{n} Datei(en): Studio entfernt.", "ok")
         elif action == "dissolve_collection":
             collection_name = request.form.get("dissolve_collection_name", "")
             n = dissolve_collection(item_ids, collection_name, db_path)
@@ -202,6 +222,13 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             if provider_id:
                 bulk_update(item_ids, {"provider_id": provider_id}, db_path, config_dir)
                 applied.append("Provider")
+
+            studio_id = _resolve_artist_or_provider(
+                "studio", request.form.get("studio_target_id", "").strip(), request.form.get("studio_search_text", "").strip()
+            )
+            if studio_id:
+                bulk_update(item_ids, {"studio_id": studio_id}, db_path, config_dir)
+                applied.append("Studio")
 
             collection_name = request.form.get("collection_name", "").strip()
             if collection_name:

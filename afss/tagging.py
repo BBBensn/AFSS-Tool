@@ -9,7 +9,11 @@ _KIND_TABLES = {
     "provider": ("providers", "provider_aliases", "provider_id", "assigned_provider"),
 }
 
-_JSON_FILES = {"artist": ("artists.json", "artists"), "provider": ("providers.json", "providers")}
+_JSON_FILES = {
+    "artist": ("artists.json", "artists"),
+    "provider": ("providers.json", "providers"),
+    "studio": ("studios.json", "studios"),
+}
 
 
 def load_json_store(config_dir: Path, kind: str) -> tuple[Path, dict, str]:

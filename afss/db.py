@@ -38,6 +38,12 @@ CREATE TABLE IF NOT EXISTS provider_aliases(
     provider_id TEXT NOT NULL REFERENCES providers(id)
 );
 
+CREATE TABLE IF NOT EXISTS studios(
+    id TEXT PRIMARY KEY,
+    canonical_name TEXT NOT NULL,
+    tags_json TEXT
+);
+
 CREATE TABLE IF NOT EXISTS media_items(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     profile_id TEXT NOT NULL REFERENCES profiles(id),
@@ -158,6 +164,8 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         cur.execute("ALTER TABLE media_items ADD COLUMN item_status TEXT DEFAULT 'active'")
     if "tags" not in columns:
         cur.execute("ALTER TABLE media_items ADD COLUMN tags TEXT")
+    if "studio_id" not in columns:
+        cur.execute("ALTER TABLE media_items ADD COLUMN studio_id TEXT REFERENCES studios(id)")
 
 
 def init_schema(db_path: Path | None = None) -> None:

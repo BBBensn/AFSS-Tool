@@ -250,6 +250,111 @@ def test_bulk_clear_artist_removes_assignment(tmp_path):
     conn.close()
 
 
+def test_bulk_set_studio_assigns_studio(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO studios(id, canonical_name, tags_json) VALUES ('studio_1', 'Studio One', NULL)")
+    conn.commit()
+    conn.close()
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post("/sort/p1/bulk", data={"item_id": ["1"], "action": "set_studio", "studio_target_id": "studio_1"})
+
+    assert resp.status_code == 200
+    assert "neu zugeordnet".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT studio_id FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("studio_1",)
+    conn.close()
+
+
+def test_bulk_create_and_set_studio_creates_new_entity(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "create_and_set_studio", "studio_search_text": "New Studio"},
+    )
+
+    assert resp.status_code == 200
+    assert "angelegt".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT s.canonical_name FROM media_items m JOIN studios s ON s.id = m.studio_id WHERE m.id = 1")
+    assert cur.fetchone() == ("New Studio",)
+    conn.close()
+
+
+def test_bulk_clear_studio_removes_assignment(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO studios(id, canonical_name, tags_json) VALUES ('studio_1', 'Studio One', NULL)")
+    cur.execute("UPDATE media_items SET studio_id = 'studio_1' WHERE id = 1")
+    conn.commit()
+    conn.close()
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post("/sort/p1/bulk", data={"item_id": ["1"], "action": "clear_studio"})
+
+    assert resp.status_code == 200
+    assert "Studio entfernt".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT studio_id FROM media_items WHERE id = 1")
+    assert cur.fetchone() == (None,)
+    conn.close()
+
+
+def test_bulk_apply_all_includes_studio(tmp_path):
+    db_path = tmp_path / "test.db"
+    config_dir = tmp_path / "config"
+    _seed(db_path, config_dir)
+    app = create_app("p1", config_dir, db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ["1"], "action": "apply_all", "studio_search_text": "Apply-All Studio"},
+    )
+
+    assert resp.status_code == 200
+    assert "Studio".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT s.canonical_name FROM media_items m JOIN studios s ON s.id = m.studio_id WHERE m.id = 1")
+    assert cur.fetchone() == ("Apply-All Studio",)
+    conn.close()
+
+
+def test_index_renders_studio_column(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO studios(id, canonical_name, tags_json) VALUES ('studio_1', 'Studio One', NULL)")
+    cur.execute("UPDATE media_items SET studio_id = 'studio_1' WHERE id = 1")
+    conn.commit()
+    conn.close()
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/")
+
+    assert resp.status_code == 200
+    assert b'col-studio ">Studio One' in resp.data
+
+
 def test_bulk_accepts_large_selection_without_413(tmp_path):
     """Flasks Standardlimit fuer Formulardaten (MAX_FORM_MEMORY_SIZE, 500 KB) greift schon bei ein
     paar tausend ausgewaehlten item_id-Checkboxen in einer grossen profile_id='all'-Ansicht und
