@@ -860,6 +860,27 @@ def test_bulk_add_co_artist_creates_db_row_from_json_and_links(tmp_path):
     conn.close()
 
 
+def test_index_renders_all_co_artists_with_tooltip(tmp_path):
+    """Mehrere Co-Artists pro Datei werden schon länger unterstützt (media_item_co_artists erlaubt
+    beliebig viele Zeilen pro media_item_id), waren in der Tabelle bei mehreren Einträgen aber nur
+    schwer lesbar - ein title-Tooltip mit der vollständigen, kommaseparierten Liste macht das auch
+    bei vielen Co-Artists auf einen Blick nachvollziehbar."""
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO media_item_co_artists(media_item_id, artist_id) VALUES (1, 'artist_2')")
+    conn.commit()
+    conn.close()
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/")
+
+    assert resp.status_code == 200
+    assert b'title="Artist Two"' in resp.data
+
+
 def test_remove_co_artist_route_deletes_link(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)
