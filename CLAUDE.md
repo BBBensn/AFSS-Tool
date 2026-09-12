@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.18.1`
+- Version: `1.19.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.18.1`
+- Aktuell: `v1.19.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -89,6 +89,9 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   - `v1.18.1` — Bugfix: "Tag ersetzen"-Panel liess sich nicht auf-/zuklappen (CSS `display: flex`
     ueberschrieb das `hidden`-Attribut); mehrere Co-Artists pro Datei sauberer dargestellt (Flex-
     Umbruch + Hover-Tooltip mit allen Namen)
+  - `v1.19.0` — neuer Button "Alle Treffer auswaehlen" unter dem Filterfeld: markiert alle aktuell
+    sichtbaren (gefilterten) Dateien gruppenuebergreifend auf einen Schlag, statt jede
+    Artist-/Collection-Gruppe mit Treffern einzeln anhaken zu muessen
 
 ## Changelogs & Dokumentation
 

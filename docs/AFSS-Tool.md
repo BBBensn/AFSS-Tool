@@ -38,8 +38,9 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   Artists: Name/Aliase des aufgelösten Eintrags werden Alias beim Ziel, zugeordnete `media_items`
   werden umgehängt, der Duplikat-Eintrag wird aus JSON und DB entfernt
 - `afss/sort_web/` (Logik in `afss/sort_studio.py`) — Sortier-Studio: zeigt alle `media_items`
-  eines Profils gruppiert nach Artist → Collection, Checkbox-Mehrfachauswahl (inkl. Gruppen-Auswahl
-  und Shift-Klick-Bereichsauswahl) für Bulk-Neuzuordnung (Artist/Provider/Collection) und
+  eines Profils gruppiert nach Artist → Collection, Checkbox-Mehrfachauswahl (inkl. Gruppen-Auswahl,
+  Shift-Klick-Bereichsauswahl und "Alle Treffer auswählen" - markiert alle aktuell sichtbaren,
+  gefilterten Dateien gruppenübergreifend) für Bulk-Neuzuordnung (Artist/Provider/Collection) und
   Titel-Override pro Datei. Setzt dabei `manual_override=1` auf betroffenen Zeilen, damit ein
   späterer `resolve`-Lauf die manuelle Entscheidung nicht überschreibt (siehe `afss/resolve.py`,
   überspringt Zeilen mit gesetztem Flag komplett). Zusätzlich: `item_status` (`trash`/`extra`, von

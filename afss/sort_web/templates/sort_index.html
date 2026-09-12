@@ -188,6 +188,10 @@
         <div class="tool-field-row">
           <input type="text" id="filter-input" class="centered-input" placeholder="Dateiname, .mp4, Ordner...">
         </div>
+        <button type="button" id="select-all-matches-btn" class="ghost-btn" style="width: 100%;"
+                title="Wählt alle aktuell sichtbaren (gefilterten) Dateien aus, unabhängig von Artist-Gruppen">
+          Alle Treffer auswählen
+        </button>
       </div>
 
       <div class="tool-group">
@@ -956,6 +960,24 @@ function initPage() {
   document.querySelectorAll('.title-tags-input').forEach(function (inp) {
     inp.addEventListener('input', function () { inp.title = inp.value; });
   });
+
+  // Wählt alle aktuell sichtbaren (per Filtern-Feld und/oder Platten-Checkboxen gefilterten)
+  // Dateien auf einmal aus, statt jede Artist-Gruppe einzeln per select-scope-Checkbox anhaken zu
+  // muessen - gedacht fuer den Workflow "im Dateinamen nach etwas suchen, alle Treffer markieren,
+  // dann z.B. Provider setzen".
+  const selectAllMatchesBtn = document.getElementById('select-all-matches-btn');
+  if (selectAllMatchesBtn) {
+    selectAllMatchesBtn.addEventListener('click', function () {
+      let count = 0;
+      document.querySelectorAll('input[name="item_id"]:not(:disabled)').forEach(function (box) {
+        if (box.closest('.item-row').style.display !== 'none') {
+          box.checked = true;
+          count += 1;
+        }
+      });
+      if (count === 0) alert('Keine sichtbaren Treffer - erst filtern oder Filter zurücksetzen.');
+    });
+  }
 
   document.querySelectorAll('.select-scope').forEach(function (scopeBox) {
     scopeBox.addEventListener('change', function () {
