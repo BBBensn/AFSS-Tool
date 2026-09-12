@@ -53,7 +53,8 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   über einen klassischen Redirect+Reload - dadurch bleiben Scroll-Position und Gruppenzustand beim
   Speichern ohne Sprung erhalten. Fehler in einer Aktion werden serverseitig abgefangen und als
   Flash-Hinweis mit der echten Ursache angezeigt statt als nichtssagender 500er (gleiches Muster wie
-  `dashboard/app.py::run_action`)
+  `dashboard/app.py::run_action`), zusätzlich fängt ein blueprint-weiter Error-Handler auch Fehler
+  beim Rendern selbst ab
 
 ## Aktueller Datenstand (Momentaufnahme)
 

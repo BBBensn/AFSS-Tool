@@ -65,7 +65,13 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
     def search(profile_id: str):
         kind = request.args.get("kind", "artist")
         query = request.args.get("q", "")
-        matches = search_json_entities(kind, query, config_dir) if config_dir is not None else []
+        try:
+            matches = search_json_entities(kind, query, config_dir) if config_dir is not None else []
+        except Exception:
+            # Antwortet bewusst leer statt mit der HTML-Fehlerseite des allgemeinen Error-Handlers -
+            # das JS hier erwartet JSON (r.json()), eine HTML-Antwort würde nur einen zusätzlichen,
+            # schwerer nachvollziehbaren Fehler beim Parsen erzeugen.
+            return jsonify([])
         return jsonify([{"id": eid, "name": name} for eid, name in matches])
 
     def _resolve_artist_or_provider(kind: str, target_id: str, new_name: str) -> str | None:
@@ -261,6 +267,19 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         except Exception as exc:
             flash(f"Fehler beim Sperren/Entsperren: {exc}", "error")
         return _render_page(profile_id)
+
+    @bp.errorhandler(Exception)
+    def _handle_any_error(exc: Exception):
+        # Sicherheitsnetz zusätzlich zu den try/excepts in den einzelnen Routen: falls ein Fehler
+        # aus _render_page() selbst kommt (z.B. beim Rendern nach einer erfolgreichen Aktion), gäbe
+        # es sonst trotz der try/excepts oben noch einen nackten 500 - der Nutzer sähe wieder nur
+        # das nichtssagende "Aktion fehlgeschlagen" statt der echten Ursache.
+        profile_id = (request.view_args or {}).get("profile_id", "all")
+        flash(f"Unerwarteter Fehler: {exc}", "error")
+        try:
+            return _render_page(profile_id)
+        except Exception:
+            return f"Unerwarteter Fehler, Seite konnte nicht neu geladen werden: {exc}", 200
 
     return bp
 

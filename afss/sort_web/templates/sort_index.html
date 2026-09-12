@@ -10,6 +10,10 @@
     --th-bg: #f2f2f2; --btn-bg: #fafafa; --btn-hover: #eeeeee;
     --flash-ok-bg: #e6f6e6; --flash-ok-border: #99cc99;
     --flash-error-bg: #fdecea; --flash-error-border: #ee9999;
+    --card-bg: #f7f7f8; --input-bg: #ffffff; --border-hover: #b3b3b3; --text-faint: #8a8a8a;
+    --accent: #2f6fed; --accent-soft: rgba(47,111,237,0.12); --accent-border: rgba(47,111,237,0.5);
+    --danger: #cc3333; --danger-soft: rgba(204,51,51,0.1); --danger-border: rgba(204,51,51,0.5);
+    --accent-contrast: #ffffff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -17,6 +21,10 @@
       --th-bg: #2a2a2c; --btn-bg: #2f2f31; --btn-hover: #3a3a3c;
       --flash-ok-bg: #123320; --flash-ok-border: #2e7d4f;
       --flash-error-bg: #3a1f1f; --flash-error-border: #a94442;
+      --card-bg: #262628; --input-bg: #18181a; --border-hover: #55555a; --text-faint: #7d7d80;
+      --accent: #5b9dff; --accent-soft: rgba(91,157,255,0.16); --accent-border: rgba(91,157,255,0.55);
+      --danger: #ff6b6b; --danger-soft: rgba(255,107,107,0.14); --danger-border: rgba(255,107,107,0.55);
+      --accent-contrast: #10151f;
     }
   }
   * { box-sizing: border-box; }
@@ -29,34 +37,50 @@
   .flash-error { background: var(--flash-error-bg); border: 1px solid var(--flash-error-border); }
 
   .toolbar {
-    position: sticky; top: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-    padding: 0.9rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.7rem; z-index: 5;
+    position: sticky; top: 0; background: var(--bg); padding-bottom: 0.6rem; margin-bottom: 0.6rem;
+    display: flex; flex-direction: column; gap: 0.75rem; z-index: 5;
   }
-  .tool-groups { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: stretch; }
+  .tool-groups, .tool-groups-bottom-left { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: stretch; }
+  .tool-groups-bottom { display: flex; flex-wrap: wrap; gap: 0.7rem; justify-content: space-between; align-items: flex-end; }
+  .tool-groups-bottom-left { flex: 1 1 auto; }
   .tool-group {
-    display: flex; flex-direction: column; gap: 0.4rem; border: 1px solid var(--border); border-radius: 8px;
-    background: var(--th-bg); padding: 0.5rem 0.6rem;
+    display: flex; flex-direction: column; gap: 0.55rem; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--card-bg); padding: 0.75rem 0.85rem; flex: 1 1 220px; min-width: 0;
   }
-  .tool-group-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 700; }
-  .tool-group-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
-  .toolbar .field { display: flex; flex-direction: column; gap: 0.25rem; position: relative; }
-  .toolbar label { font-size: 0.75rem; color: var(--muted); }
-  .checkbox-pill { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; color: var(--fg);
-    border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.55rem; background: var(--bg); }
-  input[type=text] { padding: 0.35rem 0.5rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border);
-    border-radius: 4px; font-size: 0.9rem; }
-  button { padding: 0.35rem 0.7rem; cursor: pointer; border: 1px solid var(--muted); border-radius: 4px;
-    background: var(--btn-bg); color: var(--fg); font-size: 0.85rem; }
-  button:hover { background: var(--btn-hover); }
-  button:disabled { opacity: 0.5; cursor: default; }
-  .text-btn { white-space: nowrap; }
-  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem;
-    padding: 0; flex: none; }
-  .icon-btn svg { fill: currentColor; }
-  .icon-btn-create:not(:disabled):hover { background: var(--flash-ok-bg); border-color: var(--flash-ok-border); }
-  .icon-btn-danger:not(:disabled):hover { background: var(--flash-error-bg); border-color: var(--flash-error-border); }
+  .tool-group-wide { flex: 2 1 340px; }
+  .tool-group-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-faint); font-weight: 700; }
+  .tool-sublabel { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.15rem; }
+  .tool-field-row { display: flex; flex-direction: column; gap: 0.25rem; position: relative; }
+  .tool-inner-row { display: flex; gap: 0.5rem; align-items: flex-end; }
+  .tool-inner-row .tool-field-row { flex: 1; min-width: 0; }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .btn-row .tool-field-row { flex: 1; min-width: 0; position: relative; }
+  .checkbox-pill { display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.6rem 0.25rem 0.5rem; background: var(--input-bg); }
+  .checkbox-pill input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
+  .checkbox-pill.checked { background: var(--accent-soft); border-color: var(--accent-border); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  input[type=text] { width: 100%; padding: 0.45rem 0.6rem; background: var(--input-bg); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 6px; font-size: 0.85rem; outline: none; }
+  .select-wrap { position: relative; display: flex; }
+  select { appearance: none; -webkit-appearance: none; width: 100%; padding: 0.45rem 1.7rem 0.45rem 0.6rem;
+    background: var(--input-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; outline: none; }
+  .select-chevron { position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); font-size: 0.65rem;
+    color: var(--text-faint); pointer-events: none; }
+  button { padding: 0.35rem 0.7rem; cursor: pointer; border: 1px solid var(--border); border-radius: 6px;
+    background: transparent; color: var(--fg); font-size: 0.85rem; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .ghost-btn { padding: 0.45rem 0.8rem; color: var(--muted); font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+  .ghost-btn:hover { background: var(--input-bg); color: var(--fg); border-color: var(--border-hover); }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem;
+    padding: 0; flex: none; color: var(--muted); }
+  .icon-btn:not(:disabled):hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+  .icon-btn-danger:not(:disabled):hover { color: var(--danger); border-color: var(--danger-border); background: var(--danger-soft); }
   .toolbar-footer { display: flex; justify-content: flex-end; }
-  .primary-btn { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700; border-color: var(--fg); }
+  .primary-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1.35rem; border-radius: 8px;
+    border: 1px solid transparent; background: var(--accent); color: var(--accent-contrast); font-weight: 700; font-size: 0.88rem; white-space: nowrap; }
+  .primary-btn:hover { filter: brightness(1.08); }
   .search-results { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg); border: 1px solid var(--border);
     border-radius: 4px; max-height: 10rem; overflow-y: auto; display: none; z-index: 10; }
   .search-results div { padding: 0.3rem 0.5rem; cursor: pointer; }
@@ -91,27 +115,25 @@
 </style>
 </head>
 <body>
-{% macro icon(name) -%}
+{% macro icon(name, size=15) -%}
 {%- if name == 'check' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg>
 {%- elif name == 'add' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
 {%- elif name == 'close' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
 {%- elif name == 'undo' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h11a4 4 0 010 8h-3M4 9l4-4M4 9l4 4"/></svg>
 {%- elif name == 'flag' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v16M4 4h12l-2 4 2 4H4"/></svg>
 {%- elif name == 'person_add' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM6 10V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5M17 8v5M14.5 10.5h5"/></svg>
 {%- elif name == 'sell' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m17.63 5.84-.83-.84A2 2 0 0 0 15.36 4H5c-1.1 0-2 .9-2 2v10.36c0 .53.21 1.04.59 1.41l.84.84c.78.78 2.05.78 2.83 0l10.36-10.36c.79-.78.79-2.04.01-2.41zM7 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12l-7 7-9-9V4h6l10 10z"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>
 {%- elif name == 'save' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm3-10H6V5h9z"/></svg>
-{%- elif name == 'call_split' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M14 4l2.29 2.29-2.88 2.88 1.42 1.42 2.88-2.88L20 10V4zM10 4H4v6l2.29-2.29 4.71 4.7V20h2v-8.41l-5.29-5.3z"/></svg>
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>
 {%- elif name == 'done_all' -%}
-<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M18 7l-1.41-1.41L9.17 13.17l-2.76-2.76-1.41 1.41L9.17 16zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12z"/></svg>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg>
 {%- endif -%}
 {%- endmacro %}
 <div class="top-nav"><a href="/">← Dashboard</a></div>
@@ -133,28 +155,31 @@
   <div class="toolbar">
     <div class="tool-groups">
 
-      <div class="tool-group">
+      <div class="tool-group tool-group-wide">
         <div class="tool-group-label">Ansicht</div>
-        <div class="tool-group-row">
-          <div class="field">
-            <label for="filter-input">Filtern</label>
-            <input type="text" id="filter-input" placeholder="Dateiname, .mp4, Ordner...">
+        <div class="tool-field-row">
+          <div class="tool-sublabel">Filtern</div>
+          <input type="text" id="filter-input" placeholder="Dateiname, .mp4, Ordner...">
+        </div>
+        <div class="tool-inner-row">
+          <div class="tool-field-row">
+            <div class="tool-sublabel">Sortieren</div>
+            <div class="select-wrap">
+              <select id="sort-select">
+                <option value="collection" {{ "selected" if sort_by == "collection" }}>Collection (Standard)</option>
+                <option value="filename" {{ "selected" if sort_by == "filename" }}>Dateiname</option>
+                <option value="ext" {{ "selected" if sort_by == "ext" }}>Dateityp</option>
+                <option value="folder" {{ "selected" if sort_by == "folder" }}>Ursprungsordner</option>
+              </select>
+              <span class="select-chevron">▾</span>
+            </div>
           </div>
-          <div class="field">
-            <label for="sort-select">Sortieren</label>
-            <select id="sort-select">
-              <option value="collection" {{ "selected" if sort_by == "collection" }}>Collection (Standard)</option>
-              <option value="filename" {{ "selected" if sort_by == "filename" }}>Dateiname</option>
-              <option value="ext" {{ "selected" if sort_by == "ext" }}>Dateityp</option>
-              <option value="folder" {{ "selected" if sort_by == "folder" }}>Ursprungsordner</option>
-            </select>
-          </div>
-          <button type="button" id="toggle-all-btn" class="text-btn">Alle zuklappen</button>
+          <button type="button" id="toggle-all-btn" class="ghost-btn">Alle zuklappen</button>
         </div>
         {% if profile_id == "all" and present_profiles|length > 1 %}
-        <div class="tool-group-row">
+        <div class="chip-row">
           {% for p in present_profiles %}
-          <label class="checkbox-pill"><input type="checkbox" class="profile-filter-box" value="{{ p }}" checked> {{ p }}</label>
+          <label class="checkbox-pill checked"><input type="checkbox" class="profile-filter-box" value="{{ p }}" checked> {{ p }}</label>
           {% endfor %}
         </div>
         {% endif %}
@@ -162,15 +187,15 @@
 
       <div class="tool-group">
         <div class="tool-group-label">Artist</div>
-        <div class="tool-group-row">
-          <div class="field">
-            <input type="text" id="artist-search" name="artist_search_text" autocomplete="off" placeholder="Artist suchen oder neu...">
-            <input type="hidden" name="artist_target_id" id="artist-target-id">
-            <div class="search-results" id="artist-results"></div>
-          </div>
+        <div class="tool-field-row">
+          <input type="text" id="artist-search" name="artist_search_text" autocomplete="off" placeholder="Artist suchen oder neu...">
+          <input type="hidden" name="artist_target_id" id="artist-target-id">
+          <div class="search-results" id="artist-results"></div>
+        </div>
+        <div class="btn-row">
           <button type="submit" class="icon-btn" name="action" value="set_artist"
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" title="Artist setzen">{{ icon('check') }}</button>
-          <button type="submit" class="icon-btn icon-btn-create" name="action" value="create_and_set_artist" id="artist-create-btn" disabled
+          <button type="submit" class="icon-btn" name="action" value="create_and_set_artist" id="artist-create-btn" disabled
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
                   onclick="return confirm('Neuen Artist anlegen und der Auswahl zuweisen?');"
                   title="Neu anlegen &amp; setzen (kein Treffer bei der Suche? legt den eingegebenen Namen neu an)">{{ icon('add') }}</button>
@@ -182,15 +207,15 @@
 
       <div class="tool-group">
         <div class="tool-group-label">Provider</div>
-        <div class="tool-group-row">
-          <div class="field">
-            <input type="text" id="provider-search" name="provider_search_text" autocomplete="off" placeholder="Provider suchen oder neu...">
-            <input type="hidden" name="provider_target_id" id="provider-target-id">
-            <div class="search-results" id="provider-results"></div>
-          </div>
+        <div class="tool-field-row">
+          <input type="text" id="provider-search" name="provider_search_text" autocomplete="off" placeholder="Provider suchen oder neu...">
+          <input type="hidden" name="provider_target_id" id="provider-target-id">
+          <div class="search-results" id="provider-results"></div>
+        </div>
+        <div class="btn-row">
           <button type="submit" class="icon-btn" name="action" value="set_provider"
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" title="Provider setzen">{{ icon('check') }}</button>
-          <button type="submit" class="icon-btn icon-btn-create" name="action" value="create_and_set_provider" id="provider-create-btn" disabled
+          <button type="submit" class="icon-btn" name="action" value="create_and_set_provider" id="provider-create-btn" disabled
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
                   onclick="return confirm('Neuen Provider anlegen und der Auswahl zuweisen?');"
                   title="Neu anlegen &amp; setzen (kein Treffer bei der Suche? legt den eingegebenen Namen neu an)">{{ icon('add') }}</button>
@@ -202,10 +227,10 @@
 
       <div class="tool-group">
         <div class="tool-group-label">Collection</div>
-        <div class="tool-group-row">
-          <div class="field">
-            <input type="text" id="collection-input" name="collection_name" placeholder="Name (leer = entfernen)">
-          </div>
+        <div class="tool-field-row">
+          <input type="text" id="collection-input" name="collection_name" placeholder="Name (leer = entfernen)">
+        </div>
+        <div class="btn-row">
           <button type="submit" class="icon-btn" name="action" value="set_collection"
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" title="Collection setzen">{{ icon('check') }}</button>
         </div>
@@ -213,15 +238,16 @@
 
       <div class="tool-group">
         <div class="tool-group-label">Status</div>
-        <div class="tool-group-row">
-          <div class="field">
-            <select id="status-select" name="item_status">
-              <option value="" selected>— nicht ändern —</option>
-              <option value="active">Aktiv (normal)</option>
-              <option value="trash">Papierkorb (bei plan/apply ignoriert)</option>
-              <option value="extra">Extra (behalten, nicht einsortieren)</option>
-            </select>
-          </div>
+        <div class="select-wrap">
+          <select id="status-select" name="item_status">
+            <option value="" selected>— nicht ändern —</option>
+            <option value="active">Aktiv (normal)</option>
+            <option value="trash">Papierkorb (bei plan/apply ignoriert)</option>
+            <option value="extra">Extra (behalten, nicht einsortieren)</option>
+          </select>
+          <span class="select-chevron">▾</span>
+        </div>
+        <div class="btn-row">
           <button type="submit" class="icon-btn" name="action" value="set_status"
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" title="Status setzen">{{ icon('flag') }}</button>
         </div>
@@ -229,47 +255,49 @@
 
       <div class="tool-group">
         <div class="tool-group-label">Co-Artist</div>
-        <div class="tool-group-row">
-          <div class="field">
-            <input type="text" id="co-artist-search" name="co_artist_search_text" autocomplete="off" placeholder="Artist suchen oder neu...">
-            <input type="hidden" name="co_artist_target_id" id="co-artist-target-id">
-            <div class="search-results" id="co-artist-results"></div>
-          </div>
+        <div class="tool-field-row">
+          <input type="text" id="co-artist-search" name="co_artist_search_text" autocomplete="off" placeholder="Artist suchen oder neu...">
+          <input type="hidden" name="co_artist_target_id" id="co-artist-target-id">
+          <div class="search-results" id="co-artist-results"></div>
+        </div>
+        <div class="btn-row">
           <button type="submit" class="icon-btn" name="action" value="add_co_artist"
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" title="Co-Artist hinzufügen">{{ icon('person_add') }}</button>
-          <button type="submit" class="icon-btn icon-btn-create" name="action" value="create_and_add_co_artist" id="co-artist-create-btn" disabled
+          <button type="submit" class="icon-btn" name="action" value="create_and_add_co_artist" id="co-artist-create-btn" disabled
                   formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
                   onclick="return confirm('Neuen Artist anlegen und als Co-Artist ergänzen?');"
                   title="Neu anlegen &amp; hinzufügen (kein Treffer bei der Suche? legt den eingegebenen Namen neu an)">{{ icon('add') }}</button>
         </div>
       </div>
 
-      <div class="tool-group">
-        <div class="tool-group-label">Tags</div>
-        <div class="tool-group-row">
-          <div class="field">
-            <input type="text" id="new-tags-input" name="new_tags" placeholder="tag1, tag2...">
-          </div>
-          <button type="submit" class="icon-btn" name="action" value="add_tags"
-                  formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" title="Tags hinzufügen">{{ icon('sell') }}</button>
-        </div>
-      </div>
-
-      <div class="tool-group">
-        <div class="tool-group-label">Verwaltung</div>
-        <div class="tool-group-row">
-          <button type="submit" class="icon-btn" formaction="{{ url_for('sort.details', profile_id=profile_id) }}"
-                  title="Titel &amp; Tags speichern">{{ icon('save') }}</button>
-          <button type="submit" class="icon-btn" name="action" value="clear_override"
-                  formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
-                  onclick="return confirm('Manuelle Zuordnung für die Auswahl aufheben? Der nächste Resolve-Lauf berechnet Artist/Provider/Collection dann wieder automatisch.');"
-                  title="Override aufheben (nächster Resolve-Lauf berechnet wieder automatisch)">{{ icon('undo') }}</button>
-        </div>
-      </div>
-
     </div>
 
-    <div class="toolbar-footer">
+    <div class="tool-groups-bottom">
+      <div class="tool-groups-bottom-left">
+        <div class="tool-group">
+          <div class="tool-group-label">Tags</div>
+          <div class="btn-row">
+            <div class="tool-field-row">
+              <input type="text" id="new-tags-input" name="new_tags" placeholder="tag1, tag2...">
+            </div>
+            <button type="submit" class="icon-btn" name="action" value="add_tags"
+                    formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}" title="Tags hinzufügen">{{ icon('sell') }}</button>
+          </div>
+        </div>
+
+        <div class="tool-group">
+          <div class="tool-group-label">Verwaltung</div>
+          <div class="btn-row">
+            <button type="submit" class="icon-btn" formaction="{{ url_for('sort.details', profile_id=profile_id) }}"
+                    title="Titel &amp; Tags speichern">{{ icon('save') }}</button>
+            <button type="submit" class="icon-btn" name="action" value="clear_override"
+                    formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
+                    onclick="return confirm('Manuelle Zuordnung für die Auswahl aufheben? Der nächste Resolve-Lauf berechnet Artist/Provider/Collection dann wieder automatisch.');"
+                    title="Override aufheben (nächster Resolve-Lauf berechnet wieder automatisch)">{{ icon('undo') }}</button>
+          </div>
+        </div>
+      </div>
+
       <button type="submit" name="action" value="apply_all" id="apply-all-btn" class="primary-btn"
               formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
               onclick="return confirm('Alle ausgefüllten Felder auf die Auswahl anwenden?');"
@@ -546,7 +574,10 @@ function initPage() {
     });
   }
   document.querySelectorAll('.profile-filter-box').forEach(function (box) {
-    box.addEventListener('change', applyFilters);
+    box.addEventListener('change', function () {
+      box.closest('.checkbox-pill').classList.toggle('checked', box.checked);
+      applyFilters();
+    });
   });
 
   const sortSelect = document.getElementById('sort-select');
