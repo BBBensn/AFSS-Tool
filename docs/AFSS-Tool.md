@@ -57,8 +57,14 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   beim Rendern selbst ab. `MAX_FORM_MEMORY_SIZE` ist bewusst deaktiviert (`create_app()` in
   `dashboard/app.py` und `sort_web/app.py`), da Flasks 500-KB-Standardlimit bei großen Auswahlen in
   der `all`-Ansicht (viele tausend `item_id`-Checkboxen) sonst mit `413 Request Entity Too Large`
-  jede Aktion blockiert - für dieses rein lokale Single-User-Tool unkritisch. Die Dateitabelle zeigt
-  pro Zeile zusätzlich den zugeordneten Artist-Namen als eigene Spalte
+  jede Aktion blockiert - für dieses rein lokale Single-User-Tool unkritisch. Ebenso deaktiviert:
+  `MAX_FORM_PARTS`, das nur für `multipart/form-data` gilt (genau das, was das Sortier-Studio-JS per
+  `fetch()`+`FormData` sendet) und beim Überschreiten *stillschweigend* auf ein leeres Formular
+  zurückfällt statt einen Fehler zu werfen - eine Auswahl über 1000 Dateien führte dadurch zu einem
+  Klick, der sichtbar nichts tat. Ein `isBusy`-Flag im Frontend verhindert außerdem parallele
+  Doppel-Anfragen bei ungeduldigen Mehrfachklicks, mit sichtbarem "Wird gespeichert..."-Hinweis; der
+  Dev-Server läuft mit `threaded=True`, damit eine große Anfrage nicht den einzigen Worker blockiert.
+  Die Dateitabelle zeigt pro Zeile zusätzlich den zugeordneten Artist-Namen als eigene Spalte
 
 ## Aktueller Datenstand (Momentaufnahme)
 

@@ -287,10 +287,12 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
 def create_app(profile_id: str, config_dir: Path, db_path: Path | None = None) -> Flask:
     app = Flask(__name__)
     app.secret_key = "afss-local-sort"  # nur 127.0.0.1
-    # Flasks Standardlimit fuer Formulardaten (500 KB) greift schon bei ein paar tausend
-    # ausgewaehlten item_id-Checkboxen im Sortier-Studio (413 Request Entity Too Large) - hier
-    # unkritisch, da rein lokal/single-user, daher deaktiviert statt nur angehoben.
+    # Siehe ausfuehrlicher Kommentar in afss/dashboard/app.py::create_app - beide Limits betreffen
+    # grosse Formular-Uploads (viele item_id-Checkboxen) und sind fuer dieses rein lokale
+    # Single-User-Tool unkritisch. MAX_FORM_PARTS ist besonders wichtig: Werkzeug faellt beim
+    # Ueberschreiten *stillschweigend* auf ein leeres Formular zurueck statt einen Fehler zu werfen.
     app.config["MAX_FORM_MEMORY_SIZE"] = None
+    app.config["MAX_FORM_PARTS"] = None
     app.register_blueprint(build_sort_blueprint(db_path, config_dir), url_prefix="/sort")
 
     @app.route("/")
@@ -302,4 +304,6 @@ def create_app(profile_id: str, config_dir: Path, db_path: Path | None = None) -
 
 def run_web(profile_id: str, config_dir: Path, port: int = 5153, db_path: Path | None = None) -> None:
     app = create_app(profile_id, config_dir, db_path)
-    app.run(host="127.0.0.1", port=port, debug=False)
+    # threaded=True: siehe Kommentar in afss/dashboard/app.py::run_dashboard - grosse Bulk-Aktionen
+    # duerfen den einzigen Worker-Thread nicht komplett blockieren.
+    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)

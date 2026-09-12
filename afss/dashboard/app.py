@@ -18,10 +18,16 @@ def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
     config_dir = Path(config_dir)
     app = Flask(__name__)
     app.secret_key = "afss-local-dashboard"  # nur 127.0.0.1, kein Security-relevanter Wert
-    # Flasks Standardlimit fuer Formulardaten (500 KB) greift schon bei ein paar tausend
-    # ausgewaehlten item_id-Checkboxen im Sortier-Studio (413 Request Entity Too Large) - hier
-    # unkritisch, da rein lokal/single-user, daher deaktiviert statt nur angehoben.
+    # Flasks Standardlimits fuer Formulardaten greifen schon bei ein paar tausend ausgewaehlten
+    # item_id-Checkboxen im Sortier-Studio: MAX_FORM_MEMORY_SIZE (500 KB) fuehrte zu einem klaren
+    # 413. MAX_FORM_PARTS (1000 Felder) betrifft multipart/form-data - genau das, was das Sortier-
+    # Studio-JS per FormData+fetch sendet (statt des Browser-Standards fuer normale Formulare,
+    # application/x-www-form-urlencoded) - und wird von Werkzeug beim Ueberschreiten standardmaessig
+    # *stillschweigend* zu einem leeren Formular (silent=True), nicht als Fehler! Das sah aus wie
+    # "Klick macht gar nichts", ganz ohne Fehlermeldung. Beide Limits sind fuer dieses rein lokale
+    # Single-User-Tool unkritisch, daher deaktiviert statt nur angehoben.
     app.config["MAX_FORM_MEMORY_SIZE"] = None
+    app.config["MAX_FORM_PARTS"] = None
     app.register_blueprint(build_tag_blueprint(db_path, config_dir), url_prefix="/tag")
     app.register_blueprint(build_artist_editor_blueprint(config_dir, db_path), url_prefix="/artists")
     app.register_blueprint(build_sort_blueprint(db_path, config_dir), url_prefix="/sort")
@@ -87,4 +93,9 @@ def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
 
 def run_dashboard(config_dir: Path, db_path: Path | None = None, port: int = 5150) -> None:
     app = create_app(config_dir, db_path)
-    app.run(host="127.0.0.1", port=port, debug=False)
+    # threaded=True: der Sortier-Studio-Bulk-Endpoint kann bei grossen Auswahlen (mehrere tausend
+    # Dateien in der "all"-Ansicht) mehrere Sekunden fuer Rendering brauchen - ohne Threading blockiert
+    # eine solche Anfrage den einzigen Worker-Thread komplett, jede weitere Anfrage (auch ein simpler
+    # erneuter Klick) haengt sich dahinter auf statt parallel bedient zu werden. Jede DB-Operation
+    # oeffnet ohnehin ihre eigene sqlite3-Connection (siehe get_connection()), kein geteilter State.
+    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)

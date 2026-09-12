@@ -265,6 +265,47 @@ def test_bulk_accepts_large_selection_without_413(tmp_path):
     assert b"Unerwarteter Fehler" not in resp.data
 
 
+def test_bulk_accepts_large_selection_as_multipart_form(tmp_path):
+    """Das Sortier-Studio-JS haengt Aktionen ueber fetch() mit einem FormData-Body ab - Browser
+    kodieren das dabei IMMER als multipart/form-data, nicht als application/x-www-form-urlencoded
+    (der Standard fuer ein normales <form>). Werkzeugs MAX_FORM_PARTS-Limit (Default 1000) gilt nur
+    fuer multipart und faellt beim Ueberschreiten *stillschweigend* auf ein leeres Formular zurueck
+    (silent=True) statt einen Fehler zu werfen - eine Auswahl von mehr als 1000 Dateien in der
+    grossen 'all'-Ansicht fuehrte dadurch zu einem Klick, der sichtbar gar nichts tat (kein Fehler,
+    keine Aenderung). create_app() muss dieses Limit ebenfalls aufheben."""
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO profiles(id, root_path, created_at) VALUES ('p1', '/tmp', '2020-01-01')")
+    cur.execute("INSERT INTO artists(id, canonical_name, tags_json) VALUES ('artist_1', 'Artist One', NULL)")
+    cur.executemany(
+        "INSERT INTO media_items(profile_id, path, rel_path, filename, scanned_at) VALUES ('p1', ?, ?, ?, '2020-01-01')",
+        [(f"/a/{i}.mp4", f"a/{i}.mp4", f"{i}.mp4") for i in range(1500)],
+    )
+    conn.commit()
+    cur.execute("SELECT id FROM media_items")
+    ids = [str(r[0]) for r in cur.fetchall()]
+    conn.close()
+
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ids, "action": "set_artist", "artist_target_id": "artist_1", "sort": "collection"},
+        content_type="multipart/form-data",
+    )
+
+    assert resp.status_code == 200
+    assert "1500 Datei(en) neu zugeordnet.".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM media_items WHERE artist_id = 'artist_1'")
+    assert cur.fetchone() == (1500,)
+    conn.close()
+
+
 def test_bulk_dissolve_collection_moves_name_to_tag(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

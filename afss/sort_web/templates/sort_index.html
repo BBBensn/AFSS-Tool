@@ -35,6 +35,10 @@
   .flash { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.3rem 0; }
   .flash-ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); }
   .flash-error { background: var(--flash-error-bg); border: 1px solid var(--flash-error-border); }
+  .busy-indicator { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.3rem 0; background: var(--card-bg);
+    border: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
+  body.busy #sort-form { opacity: 0.6; pointer-events: none; }
+  body.busy { cursor: wait; }
 
   .toolbar {
     position: sticky; top: 0; background: var(--bg); padding-bottom: 0.6rem; margin-bottom: 0.6rem;
@@ -149,6 +153,8 @@
     <div class="flash flash-{{ 'error' if category == 'error' else 'ok' }}">{{ message }}</div>
   {% endfor %}
 {% endwith %}
+
+<div id="busy-indicator" class="busy-indicator" hidden>⏳ Wird gespeichert - bei großen Auswahlen kann das ein paar Sekunden dauern...</div>
 
 <form id="sort-form" method="post">
   <input type="hidden" name="sort" value="{{ sort_by }}">
@@ -427,11 +433,31 @@ function applyState(state) {
   try { sessionStorage.setItem(UI_STATE_KEY, JSON.stringify(state)); } catch (e) { /* privater Modus o.ä. */ }
 }
 
+// Bei einer grossen Auswahl (mehrere tausend Dateien in der "all"-Ansicht) kann eine Antwort
+// mehrere MB HTML enthalten - das Parsen/Neuaufbauen im Browser braucht dann spuerbar Zeit, ohne
+// dass bisher irgendein sichtbares Feedback existierte. Ohne diese Sperre fuehrte ein ungeduldiger
+// zweiter Klick (nichts passiert sichtbar, also nochmal draengen) zu mehreren parallelen Anfragen,
+// die den einzigen Server-Worker-Thread zusaetzlich blockierten - genau das Verhalten, das wie ein
+// haengender Server aussah.
+let isBusy = false;
+
+function setBusy(busy) {
+  isBusy = busy;
+  document.body.classList.toggle('busy', busy);
+  const indicator = document.getElementById('busy-indicator');
+  if (indicator) indicator.hidden = !busy;
+}
+
 // Tauscht #app-root gegen die per fetch geholte, frisch gerenderte Fassung aus - keine echte
 // Seitennavigation, daher bleiben Scroll-Position und Browser-History unangetastet. Das ist der
 // Kern dagegen, dass jede Aktion die Seite sichtbar "neu aufbaut": Server rendert wie eh und je
 // die komplette Ansicht, aber der Browser navigiert nie wirklich dorthin.
 function performSwap(url, options) {
+  if (isBusy) {
+    console.warn('AFSS Sortier-Studio: Aktion laeuft bereits, weiterer Klick ignoriert.');
+    return Promise.resolve();
+  }
+  setBusy(true);
   const state = captureState();
   return fetch(url, options || {})
     .then(function (r) {
@@ -456,6 +482,9 @@ function performSwap(url, options) {
     .catch(function (err) {
       console.error('AFSS Sortier-Studio: Aktion fehlgeschlagen', err);
       alert('Aktion fehlgeschlagen - bitte Seite neu laden und erneut versuchen.');
+    })
+    .finally(function () {
+      setBusy(false);
     });
 }
 
