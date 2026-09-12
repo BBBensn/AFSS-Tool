@@ -87,6 +87,15 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             flash("Bulk-Aktion: keine Dateien ausgewählt.", "error")
             return _render_page(profile_id)
 
+        try:
+            _dispatch_bulk_action(action, item_ids)
+        except Exception as exc:  # Fehler sichtbar machen statt generischem 500 (siehe dashboard/app.py::run_action) -
+            # ohne das hier landete jeder Fehler als nichtssagendes "Aktion fehlgeschlagen" beim Nutzer.
+            flash(f"Fehler bei Aktion '{action}': {exc}", "error")
+
+        return _render_page(profile_id)
+
+    def _dispatch_bulk_action(action: str, item_ids: list[int]) -> None:
         if action == "set_artist":
             target_id = request.form.get("artist_target_id", "").strip()
             if not target_id:
@@ -212,8 +221,6 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
         else:
             flash(f"Unbekannte Aktion: {action}", "error")
 
-        return _render_page(profile_id)
-
     @bp.route("/<profile_id>/details", methods=["POST"])
     def details(profile_id: str):
         titles = {}
@@ -230,20 +237,29 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
                 except ValueError:
                     continue
 
-        n_titles = save_title_overrides(titles, db_path)
-        n_tags = save_tags(tags, db_path)
-        flash(f"{n_titles} Titel, {n_tags} Tag-Felder gespeichert.", "ok")
+        try:
+            n_titles = save_title_overrides(titles, db_path)
+            n_tags = save_tags(tags, db_path)
+            flash(f"{n_titles} Titel, {n_tags} Tag-Felder gespeichert.", "ok")
+        except Exception as exc:
+            flash(f"Fehler beim Speichern: {exc}", "error")
         return _render_page(profile_id)
 
     @bp.route("/<profile_id>/remove-co-artist/<int:item_id>/<artist_id>", methods=["POST"])
     def remove_co_artist_route(profile_id: str, item_id: int, artist_id: str):
-        remove_co_artist(item_id, artist_id, db_path)
+        try:
+            remove_co_artist(item_id, artist_id, db_path)
+        except Exception as exc:
+            flash(f"Fehler beim Entfernen: {exc}", "error")
         return _render_page(profile_id)
 
     @bp.route("/<profile_id>/toggle-lock/<artist_key>", methods=["POST"])
     def toggle_lock(profile_id: str, artist_key: str):
         locked = request.args.get("locked", "1") == "1"
-        set_artist_locked(artist_key, locked, db_path)
+        try:
+            set_artist_locked(artist_key, locked, db_path)
+        except Exception as exc:
+            flash(f"Fehler beim Sperren/Entsperren: {exc}", "error")
         return _render_page(profile_id)
 
     return bp

@@ -51,7 +51,9 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   Bulk-Aktionen ausgenommen, als Fortschrittsmarker. Aktionen laufen als AJAX-Swap (Server rendert
   die Seite direkt in derselben Response, Frontend tauscht nur `#app-root` per `fetch()` aus) statt
   über einen klassischen Redirect+Reload - dadurch bleiben Scroll-Position und Gruppenzustand beim
-  Speichern ohne Sprung erhalten
+  Speichern ohne Sprung erhalten. Fehler in einer Aktion werden serverseitig abgefangen und als
+  Flash-Hinweis mit der echten Ursache angezeigt statt als nichtssagender 500er (gleiches Muster wie
+  `dashboard/app.py::run_action`)
 
 ## Aktueller Datenstand (Momentaufnahme)
 

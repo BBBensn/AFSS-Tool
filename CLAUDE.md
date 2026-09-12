@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.11.0`
+- Version: `1.12.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.11.0`
+- Aktuell: `v1.12.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -62,6 +62,10 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   - `v1.11.0` — Sortier-Studio: keine echte Seitennavigation mehr bei Aktionen (AJAX-Swap statt
     Redirect+Reload), neuer Artist-Lock (🔒/🔓, wie gesperrter Layer in Photoshop) als
     Fortschrittsmarker - bleibt zugeklappt, von Bulk-Aktionen ausgenommen, global gespeichert
+  - `v1.12.0` — Bugfix: `/sort/*`-Routen fingen Fehler nicht ab und zeigten nur ein nichtssagendes
+    "Aktion fehlgeschlagen" statt der echten Ursache; Toolbox neu gruppiert (Ansicht/Artist/
+    Provider/Collection/Status/Co-Artist/Tags/Verwaltung) mit Icon-Buttons statt Textbuttons
+    (Tooltip on hover), "Alles setzen" jetzt unten rechts als letztes Element
 
 ## Changelogs & Dokumentation
 
