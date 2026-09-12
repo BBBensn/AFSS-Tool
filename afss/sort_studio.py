@@ -215,39 +215,54 @@ def clear_manual_override(item_ids: list[int], db_path: Path | None = None) -> i
     return updated
 
 
-def save_title_overrides(values: dict[int, str], db_path: Path | None = None) -> int:
+def save_title_overrides(values: dict[int, str], db_path: Path | None = None) -> tuple[int, int]:
     """values: {item_id: neuer_titel}. Leerer String löscht den Override wieder (Fallback auf den
-    Dateinamen-Stem beim naming-Schritt)."""
+    Dateinamen-Stem beim naming-Schritt). Das Formular in "Titel & Tags speichern" schickt IMMER
+    den Wert jeder sichtbaren Zeile mit, nicht nur die tatsächlich geänderten - ein UPDATE auf alle
+    (z.B. 1600) Zeilen wäre also normal, aber für den Nutzer kaum nachvollziehbar, ob dabei
+    versehentlich eine falsche Zeile mitgeändert wurde. Deshalb hier zusätzlich der alte Wert
+    verglichen und die tatsächliche Änderungszahl separat zurückgegeben:
+    (geprüfte Felder insgesamt, davon wirklich geändert)."""
     if not values:
-        return 0
+        return 0, 0
     conn = get_connection(db_path)
     cur = conn.cursor()
-    updated = 0
+    ids = list(values.keys())
+    placeholders = ",".join("?" for _ in ids)
+    cur.execute(f"SELECT id, title_override FROM media_items WHERE id IN ({placeholders})", ids)
+    previous = dict(cur.fetchall())
+    changed = 0
     for item_id, title in values.items():
-        cur.execute(
-            "UPDATE media_items SET title_override = ? WHERE id = ?",
-            (title.strip() or None, item_id),
-        )
-        updated += cur.rowcount
+        new_value = title.strip() or None
+        if previous.get(item_id) != new_value:
+            changed += 1
+        cur.execute("UPDATE media_items SET title_override = ? WHERE id = ?", (new_value, item_id))
     conn.commit()
     conn.close()
-    return updated
+    return len(values), changed
 
 
-def save_tags(values: dict[int, str], db_path: Path | None = None) -> int:
+def save_tags(values: dict[int, str], db_path: Path | None = None) -> tuple[int, int]:
     """values: {item_id: neue_tags_als_kommaliste}. Ersetzt die Tags der jeweiligen Datei komplett
-    (im Gegensatz zu add_tags, das für Bulk-Ergänzung gedacht ist)."""
+    (im Gegensatz zu add_tags, das für Bulk-Ergänzung gedacht ist). Rückgabe wie
+    save_title_overrides: (geprüfte Felder insgesamt, davon wirklich geändert)."""
     if not values:
-        return 0
+        return 0, 0
     conn = get_connection(db_path)
     cur = conn.cursor()
-    updated = 0
+    ids = list(values.keys())
+    placeholders = ",".join("?" for _ in ids)
+    cur.execute(f"SELECT id, tags FROM media_items WHERE id IN ({placeholders})", ids)
+    previous = dict(cur.fetchall())
+    changed = 0
     for item_id, tags in values.items():
-        cur.execute("UPDATE media_items SET tags = ? WHERE id = ?", (tags.strip() or None, item_id))
-        updated += cur.rowcount
+        new_value = tags.strip() or None
+        if previous.get(item_id) != new_value:
+            changed += 1
+        cur.execute("UPDATE media_items SET tags = ? WHERE id = ?", (new_value, item_id))
     conn.commit()
     conn.close()
-    return updated
+    return len(values), changed
 
 
 def add_tags(item_ids: list[int], new_tags: list[str], db_path: Path | None = None) -> int:
@@ -399,3 +414,38 @@ def search_tags(query: str, db_path: Path | None = None, limit: int = 20) -> lis
     q = query.strip().lower()
     matches = sorted(t for t in all_tags if q in t.lower()) if q else sorted(all_tags)
     return matches[:limit]
+
+
+def rename_tag(old_tag: str, new_tag: str, db_path: Path | None = None) -> int:
+    """Benennt einen Tag global über ALLE Profile/Dateien um (oder entfernt ihn, wenn new_tag
+    leer ist) - anders als die übrigen Bulk-Aktionen wirkt das nicht nur auf die aktuelle Auswahl,
+    sondern auf jede Datei mit genau diesem Tag. Gedacht zum Aufräumen versehentlicher
+    Nah-Duplikate (z.B. Groß-/Kleinschreibung), bei denen ein manuelles Durchklicken jeder
+    betroffenen Datei unpraktikabel wäre. Exakter (case-sensitive) Abgleich pro Einzeltag, andere
+    Tags in derselben Zeile bleiben unangetastet; landet der Ziel-Tag bereits in der Liste, wird er
+    nicht doppelt eingefügt."""
+    old_tag = old_tag.strip()
+    new_tag = new_tag.strip()
+    if not old_tag:
+        return 0
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT id, tags FROM media_items WHERE tags IS NOT NULL AND tags != ''")
+    rows = cur.fetchall()
+    updated = 0
+    for item_id, raw in rows:
+        current = [t.strip() for t in raw.split(",") if t.strip()]
+        if old_tag not in current:
+            continue
+        new_list = []
+        for t in current:
+            if t == old_tag:
+                if new_tag and new_tag not in new_list:
+                    new_list.append(new_tag)
+            elif t not in new_list:
+                new_list.append(t)
+        cur.execute("UPDATE media_items SET tags = ? WHERE id = ?", (", ".join(new_list) or None, item_id))
+        updated += 1
+    conn.commit()
+    conn.close()
+    return updated

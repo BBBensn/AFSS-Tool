@@ -12,6 +12,7 @@ from afss.sort_studio import (
     get_locked_artist_keys,
     get_profile_tree,
     remove_co_artist,
+    rename_tag,
     save_tags,
     save_title_overrides,
     search_tags,
@@ -276,9 +277,16 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
                     continue
 
         try:
-            n_titles = save_title_overrides(titles, db_path)
-            n_tags = save_tags(tags, db_path)
-            flash(f"{n_titles} Titel, {n_tags} Tag-Felder gespeichert.", "ok")
+            n_titles, n_titles_changed = save_title_overrides(titles, db_path)
+            n_tags, n_tags_changed = save_tags(tags, db_path)
+            # Das Formular schickt IMMER alle sichtbaren Zeilen mit (nicht nur die geänderten) -
+            # ohne die separate "davon geändert"-Zahl wäre kaum nachvollziehbar, ob man aus Versehen
+            # eine falsche Zeile mitbearbeitet hat.
+            flash(
+                f"{n_titles} Titel-Felder geprüft ({n_titles_changed} geändert), "
+                f"{n_tags} Tag-Felder geprüft ({n_tags_changed} geändert).",
+                "ok",
+            )
         except Exception as exc:
             flash(f"Fehler beim Speichern: {exc}", "error")
         return _render_page(profile_id)
@@ -298,6 +306,23 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
             set_artist_locked(artist_key, locked, db_path)
         except Exception as exc:
             flash(f"Fehler beim Sperren/Entsperren: {exc}", "error")
+        return _render_page(profile_id)
+
+    @bp.route("/<profile_id>/rename-tag", methods=["POST"])
+    def rename_tag_route(profile_id: str):
+        old_tag = request.form.get("old_tag", "").strip()
+        new_tag = request.form.get("new_tag", "").strip()
+        if not old_tag:
+            flash("Bitte zuerst einen vorhandenen Tag auswählen.", "error")
+        else:
+            try:
+                n = rename_tag(old_tag, new_tag, db_path)
+                if new_tag:
+                    flash(f"Tag '{old_tag}' bei {n} Datei(en) profilübergreifend zu '{new_tag}' geändert.", "ok")
+                else:
+                    flash(f"Tag '{old_tag}' bei {n} Datei(en) profilübergreifend entfernt.", "ok")
+            except Exception as exc:
+                flash(f"Fehler beim Umbenennen: {exc}", "error")
         return _render_page(profile_id)
 
     @bp.errorhandler(Exception)

@@ -75,7 +75,14 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   eigene Tabelle haben) - genutzt sowohl im Toolbox-Tags-Feld als auch pro Zeile. Tabellen-Spalten
   (Artist, Studio, Collection, Provider, Status, Co-Artists, Titel-Override, Tags) sind einzeln
   ein-/ausblendbar (Menü neben dem Kopfzeilen-Pin, `localStorage`) - damit das Layout auch mit
-  künftigen weiteren Kategorien nicht zu voll wird; Studio startet standardmäßig ausgeblendet
+  künftigen weiteren Kategorien nicht zu voll wird; Studio startet standardmäßig ausgeblendet.
+  `rename_tag()` benennt einen Tag exakt (case-sensitive) profilübergreifend über ALLE Dateien um
+  oder entfernt ihn (leeres Ziel) - zum Bereinigen versehentlicher Nah-Duplikate, ohne jede
+  betroffene Datei einzeln durchklicken zu müssen; im UI über ein Panel in "Verwaltung" erreichbar.
+  `save_title_overrides()`/`save_tags()` geben `(geprüft, geändert)` zurück statt nur der
+  Gesamtzahl - das Formular schickt immer den Wert jeder sichtbaren Zeile mit (nicht nur
+  bearbeitete), ohne die separate "geändert"-Zahl wäre bei vielen hundert Dateien nicht erkennbar,
+  ob versehentlich eine falsche Zeile mitgeändert wurde
 
 ## Aktueller Datenstand (Momentaufnahme)
 

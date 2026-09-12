@@ -293,6 +293,62 @@ def test_bulk_create_and_set_studio_creates_new_entity(tmp_path):
     conn.close()
 
 
+def test_rename_tag_route_replaces_across_all_matching_files(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Fav, solo' WHERE id = 1")
+    conn.commit()
+    conn.close()
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post("/sort/p1/rename-tag", data={"old_tag": "Fav", "new_tag": "favorite"})
+
+    assert resp.status_code == 200
+    assert "geändert".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("favorite, solo",)
+    conn.close()
+
+
+def test_rename_tag_route_with_empty_new_tag_deletes(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Fav, solo' WHERE id = 1")
+    conn.commit()
+    conn.close()
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post("/sort/p1/rename-tag", data={"old_tag": "Fav", "new_tag": ""})
+
+    assert resp.status_code == 200
+    assert "entfernt".encode() in resp.data
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("solo",)
+    conn.close()
+
+
+def test_rename_tag_route_without_old_tag_shows_error(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post("/sort/p1/rename-tag", data={"old_tag": "", "new_tag": "x"})
+
+    assert resp.status_code == 200
+    assert "Bitte zuerst einen vorhandenen Tag".encode() in resp.data
+
+
 def test_bulk_clear_studio_removes_assignment(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)
@@ -695,6 +751,22 @@ def test_bulk_clear_override_resets_flag(tmp_path):
     conn.close()
 
 
+def test_details_reports_total_vs_actually_changed(tmp_path):
+    """Das Formular schickt IMMER den Titel/Tag-Wert jeder sichtbaren Zeile mit, nicht nur die
+    tatsächlich bearbeiteten - ohne getrennten Zähler wäre bei z.B. 1600 Dateien nicht erkennbar,
+    ob man aus Versehen eine falsche Zeile mitgeändert hat."""
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+    # Datei 1 bekommt einen echt neuen Titel, Datei 2 wird mit ihrem (leeren) Ausgangswert erneut
+    # mitgeschickt - simuliert das Speichern einer Zeile bei vielen unveraenderten anderen.
+    resp = client.post("/sort/p1/details", data={"title_1": "Neuer Titel", "title_2": ""})
+
+    assert resp.status_code == 200
+    assert "2 Titel-Felder geprüft (1 geändert)".encode() in resp.data
+
+
 def test_details_saves_title_and_tags(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)
@@ -708,7 +780,7 @@ def test_details_saves_title_and_tags(tmp_path):
     )
 
     assert resp.status_code == 200
-    assert "1 Titel, 1 Tag-Felder gespeichert".encode() in resp.data
+    assert "1 Titel-Felder geprüft (1 geändert), 1 Tag-Felder geprüft (1 geändert)".encode() in resp.data
     conn = get_connection(db_path)
     cur = conn.cursor()
     cur.execute("SELECT title_override, tags FROM media_items WHERE id = 1")

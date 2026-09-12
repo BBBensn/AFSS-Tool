@@ -11,6 +11,7 @@ from afss.sort_studio import (
     get_locked_artist_keys,
     get_profile_tree,
     remove_co_artist,
+    rename_tag,
     save_tags,
     save_title_overrides,
     search_tags,
@@ -381,9 +382,10 @@ def test_save_tags_replaces_and_clears(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)
 
-    updated = save_tags({1: "solo, pov", 2: "  "}, db_path)
+    total, changed = save_tags({1: "solo, pov", 2: "  "}, db_path)
 
-    assert updated == 2
+    # Datei 2 hatte vorher schon keine Tags (NULL) - "  " -> None ist also keine echte Aenderung.
+    assert (total, changed) == (2, 1)
     conn = get_connection(db_path)
     cur = conn.cursor()
     cur.execute("SELECT tags FROM media_items WHERE id = 1")
@@ -391,6 +393,19 @@ def test_save_tags_replaces_and_clears(tmp_path):
     cur.execute("SELECT tags FROM media_items WHERE id = 2")
     assert cur.fetchone() == (None,)
     conn.close()
+
+
+def test_save_tags_reports_unchanged_values_as_not_changed(tmp_path):
+    """Das Formular in 'Titel & Tags speichern' schickt immer ALLE sichtbaren Zeilen mit, nicht
+    nur geänderte - die 'changed'-Zahl muss trotzdem nur echte Änderungen zählen, sonst kann der
+    Nutzer nicht erkennen, ob er versehentlich eine falsche Zeile mitbearbeitet hat."""
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    save_tags({1: "solo, pov"}, db_path)
+
+    total, changed = save_tags({1: "solo, pov", 2: "bts"}, db_path)
+
+    assert (total, changed) == (2, 1)
 
 
 def test_add_tags_merges_without_duplicating(tmp_path):
@@ -493,9 +508,11 @@ def test_save_title_overrides_sets_and_clears(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)
 
-    updated = save_title_overrides({1: "Schöner Titel", 2: "  "}, db_path)
+    total, changed = save_title_overrides({1: "Schöner Titel", 2: "  "}, db_path)
 
-    assert updated == 2
+    # Datei 2 hatte vorher schon keinen Titel-Override (NULL) - "  " -> None ist also keine echte
+    # Aenderung.
+    assert (total, changed) == (2, 1)
     conn = get_connection(db_path)
     cur = conn.cursor()
     cur.execute("SELECT title_override FROM media_items WHERE id = 1")
@@ -503,6 +520,16 @@ def test_save_title_overrides_sets_and_clears(tmp_path):
     cur.execute("SELECT title_override FROM media_items WHERE id = 2")
     assert cur.fetchone() == (None,)
     conn.close()
+
+
+def test_save_title_overrides_reports_unchanged_values_as_not_changed(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    save_title_overrides({1: "Schöner Titel"}, db_path)
+
+    total, changed = save_title_overrides({1: "Schöner Titel", 2: "Anderer Titel"}, db_path)
+
+    assert (total, changed) == (2, 1)
 
 
 def test_search_tags_finds_matching_substring_case_insensitive(tmp_path):
@@ -532,6 +559,92 @@ def test_search_tags_deduplicates_and_returns_all_when_query_empty(tmp_path):
     conn.close()
 
     assert search_tags("", db_path) == ["anal", "fav", "solo"]
+
+
+def test_rename_tag_replaces_exact_tag_keeps_others(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Fav, solo' WHERE id = 1")
+    cur.execute("UPDATE media_items SET tags = 'fav, anal' WHERE id = 2")  # lowercase, sollte unberuehrt bleiben
+    conn.commit()
+    conn.close()
+
+    n = rename_tag("Fav", "favorite", db_path)
+
+    assert n == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("favorite, solo",)
+    cur.execute("SELECT tags FROM media_items WHERE id = 2")
+    assert cur.fetchone() == ("fav, anal",)
+    conn.close()
+
+
+def test_rename_tag_with_empty_replacement_deletes_tag(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Fav, solo' WHERE id = 1")
+    conn.commit()
+    conn.close()
+
+    n = rename_tag("Fav", "", db_path)
+
+    assert n == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("solo",)
+    conn.close()
+
+
+def test_rename_tag_deleting_only_tag_leaves_null(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Fav' WHERE id = 1")
+    conn.commit()
+    conn.close()
+
+    n = rename_tag("Fav", "", db_path)
+
+    assert n == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == (None,)
+    conn.close()
+
+
+def test_rename_tag_merges_into_existing_target_without_duplicate(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'Fav, fav' WHERE id = 1")
+    conn.commit()
+    conn.close()
+
+    n = rename_tag("Fav", "fav", db_path)
+
+    assert n == 1
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE id = 1")
+    assert cur.fetchone() == ("fav",)
+    conn.close()
+
+
+def test_rename_tag_returns_zero_when_tag_not_used(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    assert rename_tag("nichtvorhanden", "x", db_path) == 0
 
 
 def test_set_artist_locked_and_get_locked_artist_keys(tmp_path):

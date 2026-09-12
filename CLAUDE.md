@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.17.0`
+- Version: `1.18.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.17.0`
+- Aktuell: `v1.18.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -83,6 +83,9 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   - `v1.17.0` — neue Kategorie "Studio" (Produzent, eigene Toolbox-Box + Spalte, wie Artist/
     Provider); Tabellen-Spalten jetzt ein-/ausblendbar (Menü im Kopfzeilen-Bereich, gemerkt per
     localStorage) - loest das absehbare Problem, dass immer mehr Kategorien das Layout sprengen
+  - `v1.18.0` — Tag global umbenennen/entfernen (⇄-Button in Verwaltung, Panel mit Autocomplete,
+    wirkt profilübergreifend auf alle Dateien mit exaktem Tag); "Titel & Tags speichern" zeigt jetzt
+    zusaetzlich, wie viele der (immer alle sichtbaren) Felder tatsaechlich geaendert wurden
 
 ## Changelogs & Dokumentation
 

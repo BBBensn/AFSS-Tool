@@ -10,6 +10,7 @@ afss.db
 afss.db-*
 **/artists.json*
 **/providers.json*
+**/studios.json*
 **/mapping.json*
 plan_*.csv
 

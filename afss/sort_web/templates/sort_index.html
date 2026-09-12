@@ -130,6 +130,9 @@
   .columns-menu label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 400;
     text-transform: none; letter-spacing: normal; color: var(--fg); padding: 0.2rem 0; cursor: pointer; }
   .columns-menu input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
+  .tag-replace-panel { position: absolute; top: 100%; right: 0; margin-top: 0.4rem; width: 15rem;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.8rem;
+    z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.25); display: flex; flex-direction: column; gap: 0.3rem; }
 </style>
 </head>
 <body>
@@ -152,6 +155,8 @@
 <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>
 {%- elif name == 'done_all' -%}
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg>
+{%- elif name == 'swap' -%}
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4"/><path d="M20 17H7M11 13l-4 4 4 4"/></svg>
 {%- endif -%}
 {%- endmacro %}
 <div class="top-nav"><a href="/">← Dashboard</a></div>
@@ -327,7 +332,7 @@
           {% endif %}
         </div>
 
-        <div class="tool-group">
+        <div class="tool-group" style="position: relative;">
           <div class="tool-group-label">Verwaltung</div>
           <div class="btn-row">
             <button type="submit" class="icon-btn" formaction="{{ url_for('sort.details', profile_id=profile_id) }}"
@@ -336,6 +341,19 @@
                     formaction="{{ url_for('sort.bulk', profile_id=profile_id) }}"
                     onclick="return confirm('Manuelle Zuordnung für die Auswahl aufheben? Der nächste Resolve-Lauf berechnet Artist/Provider/Collection dann wieder automatisch.');"
                     title="Override aufheben (nächster Resolve-Lauf berechnet wieder automatisch)">{{ icon('undo') }}</button>
+            <button type="button" class="icon-btn" id="tag-replace-toggle-btn"
+                    title="Tag umbenennen/entfernen (wirkt auf ALLE Profile, nicht nur die Auswahl)">{{ icon('swap') }}</button>
+          </div>
+          <div class="tag-replace-panel" id="tag-replace-panel" hidden>
+            <div class="tool-sublabel">Tag suchen (wirkt profilübergreifend auf alle Dateien)</div>
+            <div class="tool-field-row">
+              <input type="text" id="tag-replace-old" autocomplete="off" placeholder="vorhandener Tag...">
+            </div>
+            <div class="tool-sublabel">Ersetzen durch (leer = löschen)</div>
+            <div class="tool-field-row">
+              <input type="text" id="tag-replace-new" autocomplete="off" placeholder="neuer Tag oder leer...">
+            </div>
+            <button type="button" class="ghost-btn" id="tag-replace-apply-btn" style="width: 100%; margin-top: 0.3rem;">Anwenden</button>
           </div>
         </div>
       </div>
@@ -460,6 +478,7 @@ const BULK_URL = '{{ url_for("sort.bulk", profile_id=profile_id) }}';
 const INDEX_URL = '{{ url_for("sort.index", profile_id=profile_id) }}';
 const REMOVE_CO_ARTIST_URL_TEMPLATE = '{{ url_for("sort.remove_co_artist_route", profile_id=profile_id, item_id=999999999, artist_id="__ARTIST__") }}';
 const TOGGLE_LOCK_URL_TEMPLATE = '{{ url_for("sort.toggle_lock", profile_id=profile_id, artist_key="__ARTIST__") }}';
+const RENAME_TAG_URL = '{{ url_for("sort.rename_tag_route", profile_id=profile_id) }}';
 
 function captureState() {
   const filterEl = document.getElementById('filter-input');
@@ -778,6 +797,81 @@ function initPage() {
   setupTagAutocomplete(document.getElementById('new-tags-input'));
   document.querySelectorAll('input[name^="tags_"]').forEach(setupTagAutocomplete);
 
+  // Einfachere Variante fuer Felder, die genau EINEN Tag als kompletten Wert enthalten (Tag
+  // ersetzen/loeschen) statt einer kommaseparierten Liste - ein Treffer ersetzt hier den gesamten
+  // Feldinhalt statt nur das zuletzt begonnene Segment.
+  function setupSingleTagAutocomplete(input) {
+    if (!input) return;
+    let dropdown = null;
+    let timer = null;
+
+    function closeDropdown() {
+      if (dropdown) { dropdown.remove(); dropdown = null; }
+    }
+
+    function openDropdown(items) {
+      closeDropdown();
+      if (!items.length) return;
+      const rect = input.getBoundingClientRect();
+      dropdown = document.createElement('div');
+      dropdown.className = 'search-results';
+      dropdown.style.position = 'fixed';
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.top = rect.bottom + 'px';
+      dropdown.style.width = rect.width + 'px';
+      dropdown.style.display = 'block';
+      items.forEach(function (tag) {
+        const row = document.createElement('div');
+        row.textContent = tag;
+        row.addEventListener('mousedown', function (evt) {
+          evt.preventDefault();
+          input.value = tag;
+          closeDropdown();
+          input.focus();
+        });
+        dropdown.appendChild(row);
+      });
+      document.body.appendChild(dropdown);
+    }
+
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (!q) { closeDropdown(); return; }
+      timer = setTimeout(function () {
+        fetch(SEARCH_URL + '?kind=tag&q=' + encodeURIComponent(q))
+          .then(function (r) { return r.json(); })
+          .then(function (items) { openDropdown(items.map(function (i) { return i.name; })); });
+      }, 200);
+    });
+    input.addEventListener('blur', function () { setTimeout(closeDropdown, 150); });
+  }
+
+  setupSingleTagAutocomplete(document.getElementById('tag-replace-old'));
+  setupSingleTagAutocomplete(document.getElementById('tag-replace-new'));
+
+  const tagReplaceToggleBtn = document.getElementById('tag-replace-toggle-btn');
+  const tagReplacePanel = document.getElementById('tag-replace-panel');
+  if (tagReplaceToggleBtn && tagReplacePanel) {
+    tagReplaceToggleBtn.addEventListener('click', function (evt) {
+      evt.stopPropagation();
+      tagReplacePanel.hidden = !tagReplacePanel.hidden;
+    });
+  }
+  const tagReplaceApplyBtn = document.getElementById('tag-replace-apply-btn');
+  if (tagReplaceApplyBtn) {
+    tagReplaceApplyBtn.addEventListener('click', function () {
+      const oldTag = document.getElementById('tag-replace-old').value.trim();
+      const newTag = document.getElementById('tag-replace-new').value.trim();
+      if (!oldTag) { alert('Bitte zuerst einen vorhandenen Tag eingeben.'); return; }
+      const msg = newTag
+        ? 'Tag "' + oldTag + '" bei ALLEN Dateien (alle Profile) zu "' + newTag + '" ändern?'
+        : 'Tag "' + oldTag + '" bei ALLEN Dateien (alle Profile) entfernen?';
+      if (!confirm(msg)) return;
+      performSwap(RENAME_TAG_URL, { method: 'POST', body: new URLSearchParams({ old_tag: oldTag, new_tag: newTag, sort: '{{ sort_by }}' }) });
+    });
+  }
+
   document.querySelectorAll('.remove-co-artist').forEach(function (el) {
     el.addEventListener('click', function () {
       if (!confirm('Co-Artist von dieser Datei entfernen?')) return;
@@ -913,6 +1007,11 @@ document.addEventListener('click', function (evt) {
   const columnsToggleBtn = document.getElementById('columns-toggle-btn');
   if (columnsMenu && !columnsMenu.hidden && !columnsMenu.contains(evt.target) && evt.target !== columnsToggleBtn) {
     columnsMenu.hidden = true;
+  }
+  const tagReplacePanel = document.getElementById('tag-replace-panel');
+  const tagReplaceToggleBtn = document.getElementById('tag-replace-toggle-btn');
+  if (tagReplacePanel && !tagReplacePanel.hidden && !tagReplacePanel.contains(evt.target) && evt.target !== tagReplaceToggleBtn) {
+    tagReplacePanel.hidden = true;
   }
 });
 
