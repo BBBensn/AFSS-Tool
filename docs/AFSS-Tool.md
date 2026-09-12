@@ -54,7 +54,11 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   Speichern ohne Sprung erhalten. Fehler in einer Aktion werden serverseitig abgefangen und als
   Flash-Hinweis mit der echten Ursache angezeigt statt als nichtssagender 500er (gleiches Muster wie
   `dashboard/app.py::run_action`), zusätzlich fängt ein blueprint-weiter Error-Handler auch Fehler
-  beim Rendern selbst ab
+  beim Rendern selbst ab. `MAX_FORM_MEMORY_SIZE` ist bewusst deaktiviert (`create_app()` in
+  `dashboard/app.py` und `sort_web/app.py`), da Flasks 500-KB-Standardlimit bei großen Auswahlen in
+  der `all`-Ansicht (viele tausend `item_id`-Checkboxen) sonst mit `413 Request Entity Too Large`
+  jede Aktion blockiert - für dieses rein lokale Single-User-Tool unkritisch. Die Dateitabelle zeigt
+  pro Zeile zusätzlich den zugeordneten Artist-Namen als eigene Spalte
 
 ## Aktueller Datenstand (Momentaufnahme)
 

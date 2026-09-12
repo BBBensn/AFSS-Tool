@@ -18,6 +18,10 @@ def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
     config_dir = Path(config_dir)
     app = Flask(__name__)
     app.secret_key = "afss-local-dashboard"  # nur 127.0.0.1, kein Security-relevanter Wert
+    # Flasks Standardlimit fuer Formulardaten (500 KB) greift schon bei ein paar tausend
+    # ausgewaehlten item_id-Checkboxen im Sortier-Studio (413 Request Entity Too Large) - hier
+    # unkritisch, da rein lokal/single-user, daher deaktiviert statt nur angehoben.
+    app.config["MAX_FORM_MEMORY_SIZE"] = None
     app.register_blueprint(build_tag_blueprint(db_path, config_dir), url_prefix="/tag")
     app.register_blueprint(build_artist_editor_blueprint(config_dir, db_path), url_prefix="/artists")
     app.register_blueprint(build_sort_blueprint(db_path, config_dir), url_prefix="/sort")

@@ -233,6 +233,38 @@ def test_bulk_clear_artist_removes_assignment(tmp_path):
     conn.close()
 
 
+def test_bulk_accepts_large_selection_without_413(tmp_path):
+    """Flasks Standardlimit fuer Formulardaten (MAX_FORM_MEMORY_SIZE, 500 KB) greift schon bei ein
+    paar tausend ausgewaehlten item_id-Checkboxen in einer grossen profile_id='all'-Ansicht und
+    fuehrte zu 'Unerwarteter Fehler: 413 Request Entity Too Large' statt der eigentlichen Aktion -
+    create_app() muss dieses Limit fuer das rein lokale Single-User-Tool aufheben."""
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO profiles(id, root_path, created_at) VALUES ('p1', '/tmp', '2020-01-01')")
+    cur.executemany(
+        "INSERT INTO media_items(profile_id, path, rel_path, filename, scanned_at) VALUES ('p1', ?, ?, ?, '2020-01-01')",
+        [(f"/a/{i}.mp4", f"a/{i}.mp4", f"{i}.mp4") for i in range(20000)],
+    )
+    conn.commit()
+    cur.execute("SELECT id FROM media_items")
+    ids = [str(r[0]) for r in cur.fetchall()]
+    conn.close()
+
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.post(
+        "/sort/p1/bulk",
+        data={"item_id": ids, "action": "clear_artist", "artist_search_text": "x" * 300000},
+    )
+
+    assert resp.status_code == 200
+    assert "20000 Datei(en): Artist entfernt.".encode() in resp.data
+    assert b"Unerwarteter Fehler" not in resp.data
+
+
 def test_bulk_dissolve_collection_moves_name_to_tag(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.13.0`
+- Version: `1.14.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.13.0`
+- Aktuell: `v1.14.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -69,6 +69,10 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   - `v1.13.0` — blueprint-weiter Error-Handler als zusätzliches Sicherheitsnetz gegen verbleibende
     500er in `/sort/*`; Toolbox nach Design-Vorlage überarbeitet (zweizeiliges Layout, einheitliche
     Strich-Icons, größere Abstände)
+  - `v1.14.0` — Root Cause für "Aktion fehlgeschlagen" gefunden: Flasks 500-KB-Formular-Limit
+    (`MAX_FORM_MEMORY_SIZE`) griff bei großen Auswahlen in der `all`-Ansicht - jetzt deaktiviert;
+    neue "Artist"-Spalte in der Dateitabelle; Toolbox-Reihenfolge neu (Ansicht nur Filter, Sortieren
+    als eigene Box zwischen Tags und Verwaltung)
 
 ## Changelogs & Dokumentation
 

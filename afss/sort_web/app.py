@@ -287,6 +287,10 @@ def build_sort_blueprint(db_path: Path | None = None, config_dir: Path | None = 
 def create_app(profile_id: str, config_dir: Path, db_path: Path | None = None) -> Flask:
     app = Flask(__name__)
     app.secret_key = "afss-local-sort"  # nur 127.0.0.1
+    # Flasks Standardlimit fuer Formulardaten (500 KB) greift schon bei ein paar tausend
+    # ausgewaehlten item_id-Checkboxen im Sortier-Studio (413 Request Entity Too Large) - hier
+    # unkritisch, da rein lokal/single-user, daher deaktiviert statt nur angehoben.
+    app.config["MAX_FORM_MEMORY_SIZE"] = None
     app.register_blueprint(build_sort_blueprint(db_path, config_dir), url_prefix="/sort")
 
     @app.route("/")
