@@ -77,6 +77,10 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   (Artist, Studio, Collection, Provider, Status, Co-Artists, Titel-Override, Tags) sind einzeln
   ein-/ausblendbar (Menü neben dem Kopfzeilen-Pin, `localStorage`) - damit das Layout auch mit
   künftigen weiteren Kategorien nicht zu voll wird; Studio startet standardmäßig ausgeblendet.
+  Klick auf eine Spaltenüberschrift sortiert client-seitig (Werte stehen als `data-sort-*`-
+  Attribute im DOM) *innerhalb* jeder bestehenden Artist-/Collection-Gruppe, erneuter Klick kehrt
+  die Richtung um - unabhängig vom server-seitigen "Sortieren"-Dropdown, das stattdessen die
+  Gruppierung selbst bestimmt (Collection-Unterordner vs. flache Liste).
   `rename_tag()` benennt einen Tag exakt (case-sensitive) profilübergreifend über ALLE Dateien um
   oder entfernt ihn (leeres Ziel) - zum Bereinigen versehentlicher Nah-Duplikate, ohne jede
   betroffene Datei einzeln durchklicken zu müssen; im UI über ein Panel in "Verwaltung" erreichbar.

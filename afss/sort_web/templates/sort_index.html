@@ -121,6 +121,10 @@
     letter-spacing: 0.03em; border: none; border-bottom: 2px solid var(--border); padding-left: 1.5rem;
     margin-bottom: 0.5rem; background: var(--bg); }
   .header-row.pinned { position: sticky; z-index: 4; padding-top: 0.4rem; }
+  .sortable-col { cursor: pointer; user-select: none; }
+  .sortable-col:hover { color: var(--fg); }
+  .sortable-col.sort-active { color: var(--accent); }
+  .sort-arrow { display: inline-block; width: 0.8em; font-size: 0.75em; }
   .header-pin-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.4rem; height: 1.4rem;
     padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--btn-bg); color: var(--muted);
     cursor: pointer; text-transform: none; font-weight: 400; letter-spacing: normal; }
@@ -384,15 +388,15 @@
       <button type="button" class="header-pin-btn" id="columns-toggle-btn" title="Spalten ein-/ausblenden">▤</button>
       <div class="columns-menu" id="columns-menu" hidden></div>
     </div>
-    <div>Datei{% if profile_id == "all" %} / Platte{% endif %}</div>
-    <div class="col-artist">Artist</div>
-    <div class="col-studio">Studio</div>
-    <div class="col-collection">Collection</div>
-    <div class="col-provider">Provider</div>
-    <div class="col-status">Status</div>
-    <div class="col-coartists">Co-Artists</div>
-    <div class="col-titel">Titel-Override</div>
-    <div class="col-tags">Tags</div>
+    <div class="sortable-col" data-sort-key="filename">Datei{% if profile_id == "all" %} / Platte{% endif %}<span class="sort-arrow"></span></div>
+    <div class="col-artist sortable-col" data-sort-key="artist">Artist<span class="sort-arrow"></span></div>
+    <div class="col-studio sortable-col" data-sort-key="studio">Studio<span class="sort-arrow"></span></div>
+    <div class="col-collection sortable-col" data-sort-key="collection">Collection<span class="sort-arrow"></span></div>
+    <div class="col-provider sortable-col" data-sort-key="provider">Provider<span class="sort-arrow"></span></div>
+    <div class="col-status sortable-col" data-sort-key="status">Status<span class="sort-arrow"></span></div>
+    <div class="col-coartists sortable-col" data-sort-key="coartists">Co-Artists<span class="sort-arrow"></span></div>
+    <div class="col-titel sortable-col" data-sort-key="titel">Titel-Override<span class="sort-arrow"></span></div>
+    <div class="col-tags sortable-col" data-sort-key="tags">Tags<span class="sort-arrow"></span></div>
   </div>
 
   {% for artist_key, artist in artists.items() %}
@@ -421,7 +425,13 @@
         {% endif %}
       </summary>
       {% for item in collection.files %}
-      <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename ~ ' ' ~ item.rel_path)|lower }}" data-profile="{{ item.profile_id }}">
+      {% set co_names = item.co_artists|map(attribute='name')|join(', ') if item.co_artists else '' %}
+      <div class="item-row" data-search="{{ (artist.artist_name ~ ' ' ~ item.filename ~ ' ' ~ item.rel_path)|lower }}" data-profile="{{ item.profile_id }}"
+           data-sort-filename="{{ item.filename|lower }}" data-sort-artist="{{ artist.artist_name|lower }}"
+           data-sort-studio="{{ (item.studio_name or '')|lower }}" data-sort-collection="{{ (item.collection_name or '')|lower }}"
+           data-sort-provider="{{ (item.provider_name or '')|lower }}" data-sort-status="{{ item.item_status|lower }}"
+           data-sort-coartists="{{ co_names|lower }}" data-sort-titel="{{ (item.title_override or '')|lower }}"
+           data-sort-tags="{{ (item.tags or '')|lower }}">
         <input type="checkbox" name="item_id" value="{{ item.id }}" {% if is_locked %}disabled{% endif %}>
         <div>
           <div class="filename">
@@ -438,8 +448,7 @@
         <div class="col-value col-status {{ 'col-empty' if item.item_status == 'active' }}">
           {{ "—" if item.item_status == "active" else item.item_status }}
         </div>
-        <div class="col-value col-coartists {{ 'col-empty' if not item.co_artists }}"
-             title="{{ item.co_artists|map(attribute='name')|join(', ') if item.co_artists else '' }}">
+        <div class="col-value col-coartists {{ 'col-empty' if not item.co_artists }}" title="{{ co_names }}">
           {% if item.co_artists %}
             {% for co in item.co_artists %}
               <span class="manual-badge">+ {{ co.name }}
@@ -488,6 +497,30 @@ const REMOVE_CO_ARTIST_URL_TEMPLATE = '{{ url_for("sort.remove_co_artist_route",
 const TOGGLE_LOCK_URL_TEMPLATE = '{{ url_for("sort.toggle_lock", profile_id=profile_id, artist_key="__ARTIST__") }}';
 const RENAME_TAG_URL = '{{ url_for("sort.rename_tag_route", profile_id=profile_id) }}';
 
+// Spaltensortierung wirkt bewusst NUR innerhalb jeder bestehenden Collection-/Artist-Gruppe (nie
+// gruppenübergreifend) - genau wie das bisherige "Sortieren"-Dropdown die Artist-Gruppierung nie
+// aufbricht. Rein client-seitig (die Daten stehen als data-sort-*-Attribute schon im DOM), daher
+// sofort ohne Server-Roundtrip. Wird wie Filter/Scroll-Position über captureState/applyState
+// mitgeführt, damit ein Klick-Sort einen Save übersteht.
+let currentColumnSort = null;
+
+function applySort(key, dir) {
+  currentColumnSort = { key: key, dir: dir };
+  const prop = 'sort' + key.charAt(0).toUpperCase() + key.slice(1);
+  document.querySelectorAll('details.collection').forEach(function (details) {
+    const rows = Array.from(details.children).filter(function (el) { return el.classList.contains('item-row'); });
+    if (rows.length < 2) return;
+    rows.sort(function (a, b) { return (a.dataset[prop] || '').localeCompare(b.dataset[prop] || ''); });
+    if (dir === 'desc') rows.reverse();
+    rows.forEach(function (row) { details.appendChild(row); });
+  });
+  document.querySelectorAll('.sortable-col').forEach(function (col) {
+    const active = col.dataset.sortKey === key;
+    col.classList.toggle('sort-active', active);
+    col.querySelector('.sort-arrow').textContent = active ? (dir === 'desc' ? '▼' : '▲') : '';
+  });
+}
+
 function captureState() {
   const filterEl = document.getElementById('filter-input');
   return {
@@ -495,6 +528,7 @@ function captureState() {
     scrollY: window.scrollY,
     openArtists: Array.from(document.querySelectorAll('details.artist[open]')).map(function (d) { return d.id; }),
     openCollections: Array.from(document.querySelectorAll('details.collection[open]')).map(function (d) { return d.id; }),
+    columnSort: currentColumnSort,
   };
 }
 
@@ -510,6 +544,7 @@ function applyState(state) {
   document.querySelectorAll('details.collection').forEach(function (d) {
     d.open = openCollections.includes(d.id);
   });
+  if (state.columnSort) applySort(state.columnSort.key, state.columnSort.dir);
   if (state.filter) applyFilters();
   if (typeof state.scrollY === 'number') {
     window.scrollTo(0, state.scrollY);
@@ -978,6 +1013,16 @@ function initPage() {
       if (count === 0) alert('Keine sichtbaren Treffer - erst filtern oder Filter zurücksetzen.');
     });
   }
+
+  // Klick auf eine Spaltenüberschrift sortiert wie in Tabellenprogrammen üblich - erneuter Klick
+  // auf dieselbe Spalte kehrt die Richtung um.
+  document.querySelectorAll('.sortable-col').forEach(function (col) {
+    col.addEventListener('click', function () {
+      const key = col.dataset.sortKey;
+      const dir = (currentColumnSort && currentColumnSort.key === key && currentColumnSort.dir === 'asc') ? 'desc' : 'asc';
+      applySort(key, dir);
+    });
+  });
 
   document.querySelectorAll('.select-scope').forEach(function (scopeBox) {
     scopeBox.addEventListener('change', function () {
