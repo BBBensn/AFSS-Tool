@@ -10,6 +10,8 @@
     --th-bg: #f2f2f2; --btn-bg: #fafafa; --btn-hover: #eeeeee;
     --flash-ok-bg: #e6f6e6; --flash-ok-border: #99cc99;
     --flash-error-bg: #fdecea; --flash-error-border: #ee9999;
+    --card-bg: #f7f7f8; --input-bg: #ffffff; --border-hover: #b3b3b3;
+    --accent: #2f6fed; --accent-soft: rgba(47,111,237,0.12); --accent-border: rgba(47,111,237,0.5);
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -17,28 +19,35 @@
       --th-bg: #2a2a2c; --btn-bg: #2f2f31; --btn-hover: #3a3a3c;
       --flash-ok-bg: #123320; --flash-ok-border: #2e7d4f;
       --flash-error-bg: #3a1f1f; --flash-error-border: #a94442;
+      --card-bg: #262628; --input-bg: #18181a; --border-hover: #55555a;
+      --accent: #5b9dff; --accent-soft: rgba(91,157,255,0.16); --accent-border: rgba(91,157,255,0.55);
     }
   }
   body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: var(--fg); background: var(--bg); }
   h1 { margin-bottom: 0.2rem; }
   .config-path { color: var(--muted); font-size: 0.85em; margin-top: 0; }
-  .flash { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.3rem 0; }
+  .flash { padding: 0.5rem 0.8rem; border-radius: 6px; margin: 0.3rem 0; }
   .flash-ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); }
   .flash-error { background: var(--flash-error-bg); border: 1px solid var(--flash-error-border); }
-  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-  th, td { border: 1px solid var(--border); padding: 0.5rem 0.7rem; text-align: left; vertical-align: top; }
-  th { background: var(--th-bg); }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; }
+  th, td { border: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; vertical-align: top; }
+  th { background: var(--card-bg); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
   .profile-id { font-weight: 600; }
   .root-path { color: var(--muted); font-size: 0.85em; }
   .stats { font-size: 0.9em; }
   .not-scanned { color: var(--muted); font-style: italic; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
   .actions form { display: inline-flex; gap: 0.3rem; align-items: center; margin: 0; }
-  button, .btn-link { padding: 0.3rem 0.6rem; cursor: pointer; border: 1px solid var(--muted); border-radius: 4px;
+  button, .btn-link { padding: 0.35rem 0.7rem; cursor: pointer; border: 1px solid var(--border); border-radius: 6px;
     background: var(--btn-bg); text-decoration: none; color: var(--fg); font-size: 0.9em; }
-  button:hover, .btn-link:hover { background: var(--btn-hover); }
+  button:hover, .btn-link:hover { background: var(--btn-hover); border-color: var(--border-hover); }
   .btn-danger { border-color: #c66; color: #d9534f; }
-  input[type=text] { padding: 0.25rem; width: 12rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+  .btn-danger:hover { border-color: #c66; }
+  .btn-link[href*="/sort/"], .btn-link[href*="/tag/"] { border-color: var(--accent-border); color: var(--accent); }
+  .btn-link[href*="/sort/"]:hover, .btn-link[href*="/tag/"]:hover { background: var(--accent-soft); }
+  input[type=text] { padding: 0.35rem 0.5rem; width: 12rem; background: var(--input-bg); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 6px; }
   .app-nav { display: flex; gap: 1.2rem; align-items: center; padding-bottom: 1rem; margin-bottom: 1.5rem;
     border-bottom: 1px solid var(--border); }
   .app-nav-logo { font-weight: 700; color: var(--fg); margin-right: auto; }
