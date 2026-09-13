@@ -276,6 +276,43 @@ def test_search_returns_matching_artists_excluding_self(tmp_path):
     assert resp.get_json() == [{"id": "artist_alpha", "canonical_name": "Alpha"}]
 
 
+def test_field_values_returns_matching_nationality_values(tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "artists.json").write_text(
+        json.dumps(
+            {
+                "artists": [
+                    {"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {"nationality": "aut"}},
+                    {"id": "a2", "canonical_name": "B", "aliases": [], "default_tags": {"nationality": "deu"}},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.get("/artists/field-values?field=nationality&q=a")
+
+    assert resp.status_code == 200
+    assert resp.get_json() == ["aut"]
+
+
+def test_field_values_rejects_field_outside_allow_list(tmp_path):
+    """Verhindert beliebige Feldpfad-Traversierung ueber die Query - nur die explizit fuers
+    Autocomplete vorgesehenen Felder duerfen abgefragt werden."""
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.get("/artists/field-values?field=id&q=a")
+
+    assert resp.status_code == 200
+    assert resp.get_json() == []
+
+
 def test_merge_moves_source_into_target_and_redirects_to_target(tmp_path):
     config_dir = tmp_path / "config"
     _seed_two(config_dir)

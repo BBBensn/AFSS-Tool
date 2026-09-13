@@ -192,6 +192,34 @@ def search_artists(path: Path, query: str, exclude_id: str = "") -> list[dict]:
     ][:25]
 
 
+def distinct_field_values(artists_path: Path, field_path: str, query: str = "", limit: int = 20) -> list[str]:
+    """Liefert bereits vergebene Werte für ein default_tags-Feld (z.B. 'nationality' oder
+    'birth_place.country_iso') über alle Artists hinweg - für Autocomplete im Formular, damit nicht
+    durch Groß-/Kleinschreibung oder Leerzeichen-Varianten unnötig Nah-Duplikate entstehen (z.B.
+    'German' neben 'german '). field_path wird punktgetrennt durch verschachtelte dicts traversiert;
+    Listen-Felder (artist_tags, occupation, pierce_locations) werden elementweise eingesammelt."""
+    artists = load_artists(artists_path)
+    values: set[str] = set()
+    parts = field_path.split(".")
+    for a in artists:
+        node = a.get("default_tags", {})
+        for part in parts:
+            if not isinstance(node, dict):
+                node = None
+                break
+            node = node.get(part)
+        if isinstance(node, str) and node.strip():
+            values.add(node.strip())
+        elif isinstance(node, list):
+            for v in node:
+                if isinstance(v, str) and v.strip():
+                    values.add(v.strip())
+
+    q = query.strip().lower()
+    matches = sorted(v for v in values if q in v.lower()) if q else sorted(values)
+    return matches[:limit]
+
+
 def sync_artist_to_db(entry: dict, original_id: str | None, db_path: Path | None = None) -> None:
     """Zieht einen über den Artist-Editor gespeicherten Artist in die SQLite-DB nach - ohne das
     würde 'save' nur artists.json schreiben, und der Artist wäre in DB-gestützten Features (z.B.

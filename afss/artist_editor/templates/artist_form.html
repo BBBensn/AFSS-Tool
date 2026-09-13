@@ -61,6 +61,9 @@
   .flash-ok { background: #e6f6e6; border: 1px solid #99cc99; color: #1a1a1a; }
   .flash-error { background: var(--danger-bg); border: 1px solid var(--danger); }
   @media (prefers-color-scheme: dark) { .flash-ok { background: #123320; border-color: #2e7d4f; color: var(--fg); } }
+  .search-results { background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    max-height: 12rem; overflow-y: auto; z-index: 10; }
+  .search-results div:hover { background: var(--btn-hover); }
 </style>
 </head>
 <body>
@@ -152,29 +155,35 @@
       </div>
       <div class="field">
         <label for="nationality">Nationality (ISO)</label>
-        <input type="text" id="nationality" name="nationality" value="{{ tags.nationality }}">
+        <input type="text" id="nationality" name="nationality" value="{{ tags.nationality }}"
+               class="field-autocomplete" data-field="nationality" autocomplete="off">
       </div>
       <div class="field">
         <label for="ethnicity">Ethnicity</label>
-        <input type="text" id="ethnicity" name="ethnicity" value="{{ tags.ethnicity }}">
+        <input type="text" id="ethnicity" name="ethnicity" value="{{ tags.ethnicity }}"
+               class="field-autocomplete" data-field="ethnicity" autocomplete="off">
       </div>
       <div class="field full">
         <label for="occupation">Occupation (kommasepariert)</label>
-        <input type="text" id="occupation" name="occupation" value="{{ tags.occupation|join(', ') }}">
+        <input type="text" id="occupation" name="occupation" value="{{ tags.occupation|join(', ') }}"
+               class="field-autocomplete" data-field="occupation" data-multi="1" autocomplete="off">
       </div>
     </div>
     <div class="row-3">
       <div class="field">
         <label for="birth_place_city">Geburtsort: Stadt</label>
-        <input type="text" id="birth_place_city" name="birth_place_city" value="{{ tags.birth_place.city }}">
+        <input type="text" id="birth_place_city" name="birth_place_city" value="{{ tags.birth_place.city }}"
+               class="field-autocomplete" data-field="birth_place.city" autocomplete="off">
       </div>
       <div class="field">
         <label for="birth_place_state">Geburtsort: Bundesland</label>
-        <input type="text" id="birth_place_state" name="birth_place_state" value="{{ tags.birth_place.state }}">
+        <input type="text" id="birth_place_state" name="birth_place_state" value="{{ tags.birth_place.state }}"
+               class="field-autocomplete" data-field="birth_place.state" autocomplete="off">
       </div>
       <div class="field">
         <label for="birth_place_country_iso">Geburtsort: Land (ISO)</label>
-        <input type="text" id="birth_place_country_iso" name="birth_place_country_iso" value="{{ tags.birth_place.country_iso }}">
+        <input type="text" id="birth_place_country_iso" name="birth_place_country_iso" value="{{ tags.birth_place.country_iso }}"
+               class="field-autocomplete" data-field="birth_place.country_iso" autocomplete="off">
       </div>
     </div>
   </section>
@@ -192,7 +201,8 @@
       </div>
       <div class="field">
         <label for="bra_size_eu">Bra Size (EU)</label>
-        <input type="text" id="bra_size_eu" name="bra_size_eu" value="{{ tags.bra_size_eu }}">
+        <input type="text" id="bra_size_eu" name="bra_size_eu" value="{{ tags.bra_size_eu }}"
+               class="field-autocomplete" data-field="bra_size_eu" autocomplete="off">
       </div>
       <div class="field">
         <label for="boobs_type">Boobs Type</label>
@@ -234,11 +244,13 @@
       </div>
       <div class="field full">
         <label for="pierce_locations">Piercings (kommasepariert)</label>
-        <input type="text" id="pierce_locations" name="pierce_locations" value="{{ tags.pierce_locations|join(', ') }}">
+        <input type="text" id="pierce_locations" name="pierce_locations" value="{{ tags.pierce_locations|join(', ') }}"
+               class="field-autocomplete" data-field="pierce_locations" data-multi="1" autocomplete="off">
       </div>
       <div class="field full">
         <label for="artist_tags">Artist Tags (kommasepariert)</label>
-        <input type="text" id="artist_tags" name="artist_tags" value="{{ tags.artist_tags|join(', ') }}">
+        <input type="text" id="artist_tags" name="artist_tags" value="{{ tags.artist_tags|join(', ') }}"
+               class="field-autocomplete" data-field="artist_tags" data-multi="1" autocomplete="off">
       </div>
     </div>
   </section>
@@ -443,6 +455,82 @@ document.getElementById('bio-apply-btn').addEventListener('click', function () {
       resultEl.textContent = 'Fehler beim Verarbeiten.';
     });
 });
+</script>
+
+<script>
+// Autocomplete für Freitext-Felder, die sich über viele Artists hinweg wiederholen (Nationality,
+// Ethnicity, Geburtsort, Bra Size, Artist Tags, Occupation, Piercings) - verhindert unbeabsichtigte
+// Nah-Duplikate durch Groß-/Kleinschreibung oder Leerzeichen-Varianten. Gleiches Muster wie das
+// Tag-Autocomplete im Sortier-Studio: debounce + fetch + Dropdown, per position:fixed positioniert
+// (kein position:relative-Wrapper am Feld nötig).
+(function () {
+  const FIELD_VALUES_URL = '{{ url_for("artist_editor.field_values") }}';
+
+  function setupFieldAutocomplete(input) {
+    const field = input.dataset.field;
+    const multi = input.dataset.multi === '1';
+    let dropdown = null;
+    let timer = null;
+
+    function closeDropdown() {
+      if (dropdown) { dropdown.remove(); dropdown = null; }
+    }
+
+    function applySelection(value) {
+      if (multi) {
+        const segments = input.value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
+        segments[segments.length - 1] = value;
+        input.value = segments.join(', ') + ', ';
+      } else {
+        input.value = value;
+      }
+      closeDropdown();
+      input.focus();
+    }
+
+    function openDropdown(items) {
+      closeDropdown();
+      if (!items.length) return;
+      const rect = input.getBoundingClientRect();
+      dropdown = document.createElement('div');
+      dropdown.className = 'search-results';
+      dropdown.style.cssText = 'position:fixed; left:' + rect.left + 'px; top:' + rect.bottom + 'px; width:' + rect.width + 'px; display:block;';
+      items.forEach(function (value) {
+        const row = document.createElement('div');
+        row.textContent = value;
+        row.style.padding = '0.4rem 0.6rem';
+        row.style.cursor = 'pointer';
+        row.addEventListener('mousedown', function (evt) { evt.preventDefault(); applySelection(value); });
+        dropdown.appendChild(row);
+      });
+      document.body.appendChild(dropdown);
+    }
+
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      const current = multi ? input.value.split(',').slice(-1)[0].trim() : input.value.trim();
+      if (!current) { closeDropdown(); return; }
+      timer = setTimeout(function () {
+        fetch(FIELD_VALUES_URL + '?field=' + encodeURIComponent(field) + '&q=' + encodeURIComponent(current))
+          .then(function (r) { return r.json(); })
+          .then(openDropdown);
+      }, 200);
+    });
+    input.addEventListener('blur', function () { setTimeout(closeDropdown, 150); });
+  }
+
+  document.querySelectorAll('.field-autocomplete').forEach(setupFieldAutocomplete);
+
+  // .search-results-Dropdowns hängen an document.body (nicht am Feld) - müssen daher hier separat
+  // auf Klick außerhalb geschlossen werden (das bestehende Klick-Handling im Merge-Block betrifft
+  // nur #merge-results).
+  document.addEventListener('click', function (evt) {
+    if (evt.target.classList.contains('field-autocomplete')) return;
+    document.querySelectorAll('.search-results').forEach(function (el) {
+      if (el.id !== 'merge-results') el.style.display = 'none';
+    });
+  });
+})();
 </script>
 </body>
 </html>

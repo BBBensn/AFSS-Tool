@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.20.0`
+- Version: `1.21.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.20.0`
+- Aktuell: `v1.21.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -95,6 +95,9 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   - `v1.20.0` — Tabellen-Kopfzeile klickbar: sortiert wie in Tabellenprogrammen ueblich innerhalb
     jeder Artist-/Collection-Gruppe (kollidiert nicht mit dem bestehenden Sortieren-Dropdown),
     erneuter Klick kehrt die Richtung um, uebersteht wie Filter/Scroll-Position einen Save
+  - `v1.21.0` — Artist-Editor Schritt 1/4: Autocomplete fuer sieben Freitext-Felder (Nationality,
+    Ethnicity, Geburtsort, Bra Size, Artist Tags, Occupation, Piercings), Artist-Liste mit
+    Text-Filter, drei neuen Spalten und klickbarer Sortierung
 
 ## Changelogs & Dokumentation
 

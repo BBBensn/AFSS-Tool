@@ -6,6 +6,7 @@ from afss.artist_editor.import_parsers import parse_pasted_bio
 from afss.artist_editor.store import (
     artist_from_form,
     delete_artist,
+    distinct_field_values,
     load_artists,
     parse_partial_date,
     search_artists,
@@ -15,6 +16,21 @@ from afss.artist_editor.store import (
     upsert_artist,
 )
 from afss.tagging import merge_entities
+
+# Feste Allow-List statt beliebigem Feldpfad aus der Query - die Felder sind bewusst genau die, die
+# als freies Textfeld ohne <datalist> im Formular stehen (echte Festwert-Felder wie gender_identity
+# haben schon eine <datalist> und brauchen dieses Autocomplete nicht).
+_AUTOCOMPLETE_FIELDS = {
+    "nationality",
+    "ethnicity",
+    "birth_place.city",
+    "birth_place.state",
+    "birth_place.country_iso",
+    "bra_size_eu",
+    "artist_tags",
+    "occupation",
+    "pierce_locations",
+}
 
 
 def build_artist_editor_blueprint(config_dir: Path, db_path: Path | None = None) -> Blueprint:
@@ -88,6 +104,14 @@ def build_artist_editor_blueprint(config_dir: Path, db_path: Path | None = None)
         query = request.args.get("q", "")
         exclude_id = request.args.get("exclude", "")
         return jsonify(search_artists(artists_path, query, exclude_id))
+
+    @bp.route("/field-values")
+    def field_values():
+        field = request.args.get("field", "")
+        if field not in _AUTOCOMPLETE_FIELDS:
+            return jsonify([])
+        query = request.args.get("q", "")
+        return jsonify(distinct_field_values(artists_path, field, query))
 
     @bp.route("/merge/<source_id>", methods=["POST"])
     def merge(source_id: str):

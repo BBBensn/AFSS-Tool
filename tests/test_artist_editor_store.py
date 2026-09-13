@@ -5,6 +5,7 @@ from werkzeug.datastructures import MultiDict
 from afss.artist_editor.store import (
     artist_from_form,
     delete_artist,
+    distinct_field_values,
     load_artists,
     parse_partial_date,
     save_artists,
@@ -275,6 +276,62 @@ def test_search_artists_empty_query_returns_nothing(tmp_path):
     save_artists(path, [{"id": "a1", "canonical_name": "Eden Ivy", "aliases": [], "default_tags": {}}])
 
     assert search_artists(path, "") == []
+
+
+def test_distinct_field_values_reads_top_level_string_field(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [
+            {"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {"nationality": "aut"}},
+            {"id": "a2", "canonical_name": "B", "aliases": [], "default_tags": {"nationality": "deu"}},
+            {"id": "a3", "canonical_name": "C", "aliases": [], "default_tags": {"nationality": "aut"}},
+        ],
+    )
+
+    assert distinct_field_values(path, "nationality") == ["aut", "deu"]
+    assert distinct_field_values(path, "nationality", "de") == ["deu"]
+
+
+def test_distinct_field_values_reads_nested_path(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [
+            {"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {"birth_place": {"country_iso": "aut"}}},
+            {"id": "a2", "canonical_name": "B", "aliases": [], "default_tags": {"birth_place": {"country_iso": "usa"}}},
+            {"id": "a3", "canonical_name": "C", "aliases": [], "default_tags": {}},
+        ],
+    )
+
+    assert distinct_field_values(path, "birth_place.country_iso") == ["aut", "usa"]
+
+
+def test_distinct_field_values_collects_list_field_elements(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [
+            {"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {"artist_tags": ["milf", "solo"]}},
+            {"id": "a2", "canonical_name": "B", "aliases": [], "default_tags": {"artist_tags": ["solo", "anal"]}},
+        ],
+    )
+
+    assert distinct_field_values(path, "artist_tags") == ["anal", "milf", "solo"]
+
+
+def test_distinct_field_values_empty_query_returns_all_sorted(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [
+            {"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {"ethnicity": "caucasian"}},
+            {"id": "a2", "canonical_name": "B", "aliases": [], "default_tags": {}},
+        ],
+    )
+
+    assert distinct_field_values(path, "ethnicity") == ["caucasian"]
+    assert distinct_field_values(path, "nonexistent.path") == []
 
 
 def test_sync_artist_to_db_creates_new_row(tmp_path):

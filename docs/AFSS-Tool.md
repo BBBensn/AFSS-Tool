@@ -36,7 +36,12 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   den Text selbst aus seinem Browser, das Tool ruft nichts live ab (offline-Prinzip bleibt gewahrt).
   Enthält außerdem eine Merge-Funktion (`afss/tagging.py::merge_entities`) für doppelt angelegte
   Artists: Name/Aliase des aufgelösten Eintrags werden Alias beim Ziel, zugeordnete `media_items`
-  werden umgehängt, der Duplikat-Eintrag wird aus JSON und DB entfernt
+  werden umgehängt, der Duplikat-Eintrag wird aus JSON und DB entfernt. Sieben Freitext-Felder
+  (Nationality, Ethnicity, Geburtsort, Bra Size, Artist Tags, Occupation, Piercings) haben
+  Autocomplete aus bereits über andere Artists vergebenen Werten (`store.py::distinct_field_values`,
+  Route `/artists/field-values`, feste Allow-Liste) - verhindert Nah-Duplikate durch Groß-/
+  Kleinschreibung o.ä.; echte Festwert-Felder bleiben bei `<datalist>`. Die Artist-Liste hat einen
+  Text-Filter und klickbar sortierbare Spalten (gleiches Muster wie im Sortier-Studio)
 - `afss/sort_web/` (Logik in `afss/sort_studio.py`) — Sortier-Studio: zeigt alle `media_items`
   eines Profils gruppiert nach Artist → Collection, Checkbox-Mehrfachauswahl (inkl. Gruppen-Auswahl,
   Shift-Klick-Bereichsauswahl und "Alle Treffer auswählen" - markiert alle aktuell sichtbaren,

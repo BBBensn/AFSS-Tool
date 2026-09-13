@@ -20,7 +20,7 @@
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0 auto; padding: 2.5rem 1.5rem 4rem;
-    color: var(--fg); background: var(--bg); max-width: 900px; line-height: 1.4;
+    color: var(--fg); background: var(--bg); max-width: 1000px; line-height: 1.4;
   }
   h1 { font-size: 1.4rem; margin: 0 0 0.2rem; }
   .count { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
@@ -31,7 +31,12 @@
   table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
   th, td { border-bottom: 1px solid var(--border); padding: 0.6rem 0.7rem; text-align: left; vertical-align: top; }
   th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); font-weight: 600; }
+  th.sortable-col { cursor: pointer; user-select: none; }
+  th.sortable-col:hover { color: var(--fg); }
+  th.sortable-col.sort-active { color: var(--fg); font-weight: 700; }
+  .sort-arrow { display: inline-block; width: 0.8em; font-size: 0.85em; }
   .aliases { color: var(--muted); font-size: 0.85rem; }
+  .col-empty { color: var(--muted); }
   .row-actions { display: flex; gap: 0.4rem; }
   a.btn, button {
     padding: 0.35rem 0.7rem; border: 1px solid var(--border); border-radius: 5px;
@@ -41,7 +46,9 @@
   .btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
   .btn-danger:hover { background: var(--danger-bg); }
   .btn-primary { border-color: var(--fg); font-weight: 600; }
-  .top-bar { margin-bottom: 0.5rem; }
+  .top-bar { margin-bottom: 0.5rem; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; }
+  #filter-input { padding: 0.4rem 0.6rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 5px; font-size: 0.85rem; min-width: 16rem; }
   .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
 </style>
 </head>
@@ -57,25 +64,43 @@
 
 <div class="top-bar">
   <a class="btn btn-primary" href="{{ url_for('artist_editor.new') }}">+ Neuer Artist</a>
+  <input type="text" id="filter-input" placeholder="Name, Alias, Nationality, Ethnicity...">
 </div>
 
 {% if artists %}
-<table>
+<table id="artist-table">
   <thead>
     <tr>
-      <th>Canonical Name</th>
+      <th class="sortable-col" data-sort-key="name">Canonical Name<span class="sort-arrow"></span></th>
       <th>Aliases</th>
-      <th>Gender</th>
-      <th>Aktiv</th>
+      <th class="sortable-col" data-sort-key="gender">Gender<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="nationality">Nationality<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="ethnicity">Ethnicity<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="videos">Videos<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="active">Aktiv<span class="sort-arrow"></span></th>
       <th></th>
     </tr>
   </thead>
   <tbody>
     {% for a in artists %}
-    <tr>
+    {% set tags = a.default_tags or {} %}
+    {% set gender = tags.get('gender_identity') %}
+    {% set nationality = tags.get('nationality') %}
+    {% set ethnicity = tags.get('ethnicity') %}
+    {% set videos = tags.get('number_videos') %}
+    <tr data-search="{{ (a.canonical_name ~ ' ' ~ (a.aliases or [])|join(' ') ~ ' ' ~ (nationality or '') ~ ' ' ~ (ethnicity or ''))|lower }}"
+        data-sort-name="{{ a.canonical_name|lower }}" data-sort-gender="{{ (gender or '')|lower }}"
+        data-sort-nationality="{{ (nationality or '')|lower }}" data-sort-ethnicity="{{ (ethnicity or '')|lower }}"
+        data-sort-videos="{{ '%06d'|format(videos) if videos is not none else '' }}"
+        data-sort-active="{{ '1' if a.active else '0' }}">
       <td>{{ a.canonical_name }}</td>
       <td class="aliases">{{ (a.aliases or [])|join(", ") }}</td>
-      <td>{{ a.default_tags.gender_identity if a.default_tags else "" }}</td>
+      <td>{{ gender or "—" }}</td>
+      <td class="{{ 'col-empty' if not nationality }}">{{ nationality or "—" }}</td>
+      <td class="{{ 'col-empty' if not ethnicity }}">{{ ethnicity or "—" }}</td>
+      <td class="{{ 'col-empty' if videos is none }}">
+        {{ videos if videos is not none else "—" }}{{ "+" if tags.get('number_videos_is_lower_bound') and videos is not none }}
+      </td>
       <td>{{ "ja" if a.active else "nein" }}</td>
       <td>
         <div class="row-actions">
@@ -93,5 +118,42 @@
 {% else %}
 <p class="empty">Noch keine Artists angelegt.</p>
 {% endif %}
+
+<script>
+(function () {
+  const filterInput = document.getElementById('filter-input');
+  const table = document.getElementById('artist-table');
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+
+  if (filterInput) {
+    filterInput.addEventListener('input', function () {
+      const q = filterInput.value.trim().toLowerCase();
+      tbody.querySelectorAll('tr').forEach(function (row) {
+        row.style.display = (!q || row.dataset.search.includes(q)) ? '' : 'none';
+      });
+    });
+  }
+
+  let currentSort = null;
+  table.querySelectorAll('.sortable-col').forEach(function (col) {
+    col.addEventListener('click', function () {
+      const key = col.dataset.sortKey;
+      const dir = (currentSort && currentSort.key === key && currentSort.dir === 'asc') ? 'desc' : 'asc';
+      currentSort = { key: key, dir: dir };
+      const prop = 'sort' + key.charAt(0).toUpperCase() + key.slice(1);
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort(function (a, b) { return (a.dataset[prop] || '').localeCompare(b.dataset[prop] || ''); });
+      if (dir === 'desc') rows.reverse();
+      rows.forEach(function (row) { tbody.appendChild(row); });
+      table.querySelectorAll('.sortable-col').forEach(function (c) {
+        const active = c === col;
+        c.classList.toggle('sort-active', active);
+        c.querySelector('.sort-arrow').textContent = active ? (dir === 'desc' ? '▼' : '▲') : '';
+      });
+    });
+  });
+})();
+</script>
 </body>
 </html>
