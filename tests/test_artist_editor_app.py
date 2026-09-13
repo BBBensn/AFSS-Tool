@@ -365,3 +365,50 @@ def test_merge_unknown_target_shows_error_and_keeps_both(tmp_path):
 
     assert "Merge fehlgeschlagen".encode() in resp.data
     assert len(load_artists(config_dir / "artists.json")) == 2
+
+
+def test_bulk_sets_field_on_selected_artists(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.post(
+        "/artists/bulk",
+        data={"artist_id": ["artist_alpha", "artist_alpha_dup"], "field": "occupation", "value": "Model, Actress"},
+        follow_redirects=True,
+    )
+
+    assert resp.status_code == 200
+    assert "bei 2 Artist(s)".encode() in resp.data
+    artists = {a["id"]: a for a in load_artists(config_dir / "artists.json")}
+    assert artists["artist_alpha"]["default_tags"]["occupation"] == ["model", "actress"]
+    assert artists["artist_alpha_dup"]["default_tags"]["occupation"] == ["model", "actress"]
+
+
+def test_bulk_without_selection_shows_error(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.post("/artists/bulk", data={"field": "nationality", "value": "usa"}, follow_redirects=True)
+
+    assert "keine Artists ausgewählt".encode() in resp.data
+
+
+def test_bulk_rejects_field_outside_allow_list(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.post(
+        "/artists/bulk",
+        data={"artist_id": ["artist_alpha"], "field": "id", "value": "hacked"},
+        follow_redirects=True,
+    )
+
+    assert "Unbekanntes Feld".encode() in resp.data
+    artists = load_artists(config_dir / "artists.json")
+    assert next(a for a in artists if a["id"] == "artist_alpha")["id"] == "artist_alpha"

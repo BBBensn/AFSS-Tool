@@ -24,7 +24,7 @@
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0 auto; padding: 2.5rem 1.5rem 4rem;
-    color: var(--fg); background: var(--bg); max-width: 1000px; line-height: 1.4;
+    color: var(--fg); background: var(--bg); max-width: 1200px; line-height: 1.4;
   }
   h1 { font-size: 1.4rem; margin: 0 0 0.2rem; }
   .count { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
@@ -36,11 +36,13 @@
     border-radius: 8px; overflow: hidden; }
   th, td { border-bottom: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; vertical-align: top; }
   th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); font-weight: 600;
-    background: var(--card-bg); }
+    background: var(--th-bg); }
   th.sortable-col { cursor: pointer; user-select: none; }
   th.sortable-col:hover { color: var(--fg); }
   th.sortable-col.sort-active { color: var(--accent); font-weight: 700; }
   .sort-arrow { display: inline-block; width: 0.8em; font-size: 0.85em; }
+  table.header-pinned thead th { position: sticky; top: 0; z-index: 4; background: var(--th-bg); }
+  .col-hidden { display: none !important; }
   .aliases { color: var(--muted); font-size: 0.85rem; }
   .col-empty { color: var(--muted); }
   .row-actions { display: flex; gap: 0.4rem; }
@@ -53,7 +55,7 @@
   .btn-danger:hover { background: var(--danger-bg); border-color: var(--danger); }
   a.btn-primary { border-color: transparent; background: var(--accent); color: var(--accent-contrast); font-weight: 700; }
   a.btn-primary:hover { filter: brightness(1.08); background: var(--accent); }
-  .top-bar { margin-bottom: 0.5rem; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; }
+  .top-bar { margin-bottom: 0.8rem; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; }
   #filter-input { padding: 0.4rem 0.6rem; background: var(--input-bg); color: var(--fg); border: 1px solid var(--border);
     border-radius: 6px; font-size: 0.85rem; min-width: 16rem; }
   .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
@@ -63,6 +65,35 @@
   .app-nav a { color: var(--muted); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
   .app-nav a:hover { color: var(--fg); }
   .app-nav a.active { color: var(--fg); border-bottom: 2px solid var(--fg); padding-bottom: 0.7rem; margin-bottom: -0.8rem; }
+
+  .header-controls { display: flex; gap: 0.3rem; align-items: center; margin-left: auto; position: relative; }
+  .header-pin-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem;
+    padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--btn-bg); color: var(--muted);
+    cursor: pointer; font-size: 0.9rem; }
+  .header-pin-btn:hover { background: var(--btn-hover); color: var(--fg); }
+  .header-pin-btn.active { color: var(--accent); border-color: var(--accent); }
+  .columns-menu { position: absolute; top: 120%; right: 0; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.4rem 0.6rem; z-index: 10; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
+  .columns-menu label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 400;
+    text-transform: none; letter-spacing: normal; color: var(--fg); padding: 0.2rem 0; cursor: pointer; }
+  .columns-menu input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
+
+  .bulk-toolbar { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end; margin-bottom: 0.5rem;
+    padding: 0.75rem 0.85rem; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
+  .bulk-field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .bulk-field label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+  .bulk-toolbar select, .bulk-toolbar input[type=text] { padding: 0.4rem 0.6rem; background: var(--input-bg); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
+  .bulk-toolbar select { min-width: 12rem; }
+  .bulk-toolbar input[type=text] { min-width: 14rem; }
+  .bulk-value-wrap { position: relative; }
+  .selected-count { font-size: 0.8rem; color: var(--muted); margin-right: auto; align-self: center; }
+  .search-results { position: fixed; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    max-height: 12rem; overflow-y: auto; z-index: 30; }
+  .search-results div { padding: 0.35rem 0.6rem; cursor: pointer; }
+  .search-results div:hover { background: var(--btn-hover); }
+  th.col-select, td.col-select { width: 2rem; text-align: center; }
+  input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
 </style>
 </head>
 <body>
@@ -88,17 +119,44 @@
 </div>
 
 {% if artists %}
+<form id="bulk-form" method="post" action="{{ url_for('artist_editor.bulk') }}"></form>
+
+<div class="bulk-toolbar">
+  <span class="selected-count" id="selected-count">0 ausgewählt</span>
+  <div class="bulk-field">
+    <label for="bulk-field-select">Feld</label>
+    <select id="bulk-field-select" form="bulk-form" name="field">
+      {% for key, label in bulk_fields %}
+      <option value="{{ key }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="bulk-field bulk-value-wrap">
+    <label for="bulk-value-input">Wert (leer = leeren)</label>
+    <input type="text" id="bulk-value-input" form="bulk-form" name="value" autocomplete="off" placeholder="Wert eingeben...">
+  </div>
+  <button type="submit" form="bulk-form" class="btn-primary"
+          onclick="return confirm('Ausgewähltes Feld bei allen markierten Artists ersetzen?');">Bei Auswahl setzen</button>
+</div>
+
 <table id="artist-table">
   <thead>
     <tr>
+      <th class="col-select"><input type="checkbox" id="select-all-checkbox" title="Alle sichtbaren auswählen"></th>
       <th class="sortable-col" data-sort-key="name">Canonical Name<span class="sort-arrow"></span></th>
-      <th>Aliases</th>
-      <th class="sortable-col" data-sort-key="gender">Gender<span class="sort-arrow"></span></th>
-      <th class="sortable-col" data-sort-key="nationality">Nationality<span class="sort-arrow"></span></th>
-      <th class="sortable-col" data-sort-key="ethnicity">Ethnicity<span class="sort-arrow"></span></th>
-      <th class="sortable-col" data-sort-key="videos">Videos<span class="sort-arrow"></span></th>
-      <th class="sortable-col" data-sort-key="active">Aktiv<span class="sort-arrow"></span></th>
-      <th></th>
+      <th data-col="aliases">Aliases</th>
+      <th class="sortable-col" data-sort-key="gender" data-col="gender">Gender<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="nationality" data-col="nationality">Nationality<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="ethnicity" data-col="ethnicity">Ethnicity<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="videos" data-col="videos">Videos<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="active" data-col="active">Aktiv<span class="sort-arrow"></span></th>
+      <th>
+        <div class="header-controls">
+          <button type="button" class="header-pin-btn" id="header-pin-btn" title="Kopfzeile beim Scrollen fixieren">🔓</button>
+          <button type="button" class="header-pin-btn" id="columns-toggle-btn" title="Spalten ein-/ausblenden">▤</button>
+          <div class="columns-menu" id="columns-menu" hidden></div>
+        </div>
+      </th>
     </tr>
   </thead>
   <tbody>
@@ -113,15 +171,16 @@
         data-sort-nationality="{{ (nationality or '')|lower }}" data-sort-ethnicity="{{ (ethnicity or '')|lower }}"
         data-sort-videos="{{ '%06d'|format(videos) if videos is not none else '' }}"
         data-sort-active="{{ '1' if a.active else '0' }}">
+      <td class="col-select"><input type="checkbox" class="row-select" form="bulk-form" name="artist_id" value="{{ a.id }}"></td>
       <td>{{ a.canonical_name }}</td>
-      <td class="aliases">{{ (a.aliases or [])|join(", ") }}</td>
-      <td>{{ gender or "—" }}</td>
-      <td class="{{ 'col-empty' if not nationality }}">{{ nationality or "—" }}</td>
-      <td class="{{ 'col-empty' if not ethnicity }}">{{ ethnicity or "—" }}</td>
-      <td class="{{ 'col-empty' if videos is none }}">
+      <td class="aliases" data-col="aliases">{{ (a.aliases or [])|join(", ") }}</td>
+      <td data-col="gender">{{ gender or "—" }}</td>
+      <td class="{{ 'col-empty' if not nationality }}" data-col="nationality">{{ nationality or "—" }}</td>
+      <td class="{{ 'col-empty' if not ethnicity }}" data-col="ethnicity">{{ ethnicity or "—" }}</td>
+      <td class="{{ 'col-empty' if videos is none }}" data-col="videos">
         {{ videos if videos is not none else "—" }}{{ "+" if tags.get('number_videos_is_lower_bound') and videos is not none }}
       </td>
-      <td>{{ "ja" if a.active else "nein" }}</td>
+      <td data-col="active">{{ "ja" if a.active else "nein" }}</td>
       <td>
         <div class="row-actions">
           <a class="btn" href="{{ url_for('artist_editor.edit', artist_id=a.id) }}">Bearbeiten</a>
@@ -146,12 +205,17 @@
   if (!table) return;
   const tbody = table.querySelector('tbody');
 
+  function visibleRows() {
+    return Array.from(tbody.querySelectorAll('tr')).filter(function (row) { return row.style.display !== 'none'; });
+  }
+
   if (filterInput) {
     filterInput.addEventListener('input', function () {
       const q = filterInput.value.trim().toLowerCase();
       tbody.querySelectorAll('tr').forEach(function (row) {
         row.style.display = (!q || row.dataset.search.includes(q)) ? '' : 'none';
       });
+      updateSelectAllState();
     });
   }
 
@@ -173,6 +237,179 @@
       });
     });
   });
+
+  // -- Markieren + Bulk-Bearbeitung --------------------------------------------------------
+  const selectAllBox = document.getElementById('select-all-checkbox');
+  const selectedCountEl = document.getElementById('selected-count');
+
+  function updateSelectedCount() {
+    const n = tbody.querySelectorAll('.row-select:checked').length;
+    selectedCountEl.textContent = n + ' ausgewählt';
+  }
+
+  function updateSelectAllState() {
+    const visible = visibleRows();
+    const boxes = visible.map(function (row) { return row.querySelector('.row-select'); });
+    const checkedCount = boxes.filter(function (b) { return b.checked; }).length;
+    selectAllBox.checked = boxes.length > 0 && checkedCount === boxes.length;
+    selectAllBox.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+  }
+
+  selectAllBox.addEventListener('change', function () {
+    visibleRows().forEach(function (row) {
+      const box = row.querySelector('.row-select');
+      if (box) box.checked = selectAllBox.checked;
+    });
+    updateSelectedCount();
+  });
+
+  tbody.addEventListener('change', function (evt) {
+    if (evt.target.classList.contains('row-select')) {
+      updateSelectedCount();
+      updateSelectAllState();
+    }
+  });
+
+  // -- Kopfzeile fixieren -------------------------------------------------------------------
+  const HEADER_PIN_KEY = 'afss_artist_header_pinned';
+  const pinBtn = document.getElementById('header-pin-btn');
+
+  function setHeaderPinned(pinned, persist) {
+    table.classList.toggle('header-pinned', pinned);
+    pinBtn.classList.toggle('active', pinned);
+    pinBtn.textContent = pinned ? '🔒' : '🔓';
+    pinBtn.title = pinned ? 'Kopfzeile wieder mitscrollen lassen' : 'Kopfzeile beim Scrollen fixieren';
+    if (persist !== false) {
+      try { localStorage.setItem(HEADER_PIN_KEY, pinned ? '1' : '0'); } catch (e) { /* privater Modus o.ä. */ }
+    }
+  }
+
+  let pinPreference = false;
+  try { pinPreference = localStorage.getItem(HEADER_PIN_KEY) === '1'; } catch (e) { /* privater Modus o.ä. */ }
+  setHeaderPinned(pinPreference, false);
+  pinBtn.addEventListener('click', function () { setHeaderPinned(!table.classList.contains('header-pinned')); });
+
+  // -- Spalten ein-/ausblenden --------------------------------------------------------------
+  const HIDDEN_COLUMNS_KEY = 'afss_artist_hidden_columns';
+  const COLUMN_DEFS = [
+    { key: 'aliases', label: 'Aliases' },
+    { key: 'gender', label: 'Gender' },
+    { key: 'nationality', label: 'Nationality' },
+    { key: 'ethnicity', label: 'Ethnicity' },
+    { key: 'videos', label: 'Videos' },
+    { key: 'active', label: 'Aktiv' },
+  ];
+
+  function getHiddenColumns() {
+    try {
+      const raw = localStorage.getItem(HIDDEN_COLUMNS_KEY);
+      return raw === null ? [] : JSON.parse(raw);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function applyColumnVisibility(hidden) {
+    COLUMN_DEFS.forEach(function (c) {
+      const isHidden = hidden.indexOf(c.key) !== -1;
+      table.querySelectorAll('[data-col="' + c.key + '"]').forEach(function (el) {
+        el.classList.toggle('col-hidden', isHidden);
+      });
+    });
+  }
+
+  let hiddenColumns = getHiddenColumns();
+  applyColumnVisibility(hiddenColumns);
+
+  const columnsMenu = document.getElementById('columns-menu');
+  const columnsToggleBtn = document.getElementById('columns-toggle-btn');
+  COLUMN_DEFS.forEach(function (c) {
+    const label = document.createElement('label');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = hiddenColumns.indexOf(c.key) === -1;
+    box.addEventListener('change', function () {
+      hiddenColumns = box.checked
+        ? hiddenColumns.filter(function (k) { return k !== c.key; })
+        : hiddenColumns.concat([c.key]);
+      try { localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(hiddenColumns)); } catch (e) { /* privater Modus o.ä. */ }
+      applyColumnVisibility(hiddenColumns);
+    });
+    label.appendChild(box);
+    label.appendChild(document.createTextNode(c.label));
+    columnsMenu.appendChild(label);
+  });
+  columnsToggleBtn.addEventListener('click', function (evt) {
+    evt.stopPropagation();
+    columnsMenu.hidden = !columnsMenu.hidden;
+  });
+  document.addEventListener('click', function (evt) {
+    if (!columnsMenu.hidden && !columnsMenu.contains(evt.target) && evt.target !== columnsToggleBtn) {
+      columnsMenu.hidden = true;
+    }
+  });
+
+  // -- Bulk-Wert-Autocomplete -----------------------------------------------------------------
+  // Dieselbe Fetch-Autocomplete wie im Einzel-Formular (artist_form.html) - das Zielfeld
+  // (data-field) wechselt hier aber dynamisch mit der Feld-Auswahl im Dropdown, statt fest zu sein.
+  const LIST_FIELDS = new Set(['occupation', 'artist_tags', 'pierce_locations']);
+  const FIELD_VALUES_URL = '{{ url_for("artist_editor.field_values") }}';
+  const fieldSelect = document.getElementById('bulk-field-select');
+  const valueInput = document.getElementById('bulk-value-input');
+  let dropdown = null;
+  let debounceTimer = null;
+
+  function closeDropdown() {
+    if (dropdown) { dropdown.remove(); dropdown = null; }
+  }
+
+  function isMultiField() {
+    return LIST_FIELDS.has(fieldSelect.value);
+  }
+
+  function applySelection(value) {
+    if (isMultiField()) {
+      const segments = valueInput.value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s.length; });
+      segments[segments.length - 1] = value;
+      valueInput.value = segments.join(', ') + ', ';
+    } else {
+      valueInput.value = value;
+    }
+    closeDropdown();
+    valueInput.focus();
+  }
+
+  function openDropdown(items) {
+    closeDropdown();
+    if (!items.length) return;
+    const rect = valueInput.getBoundingClientRect();
+    dropdown = document.createElement('div');
+    dropdown.className = 'search-results';
+    dropdown.style.cssText = 'left:' + rect.left + 'px; top:' + rect.bottom + 'px; width:' + rect.width + 'px; display:block;';
+    items.forEach(function (value) {
+      const row = document.createElement('div');
+      row.textContent = value;
+      row.addEventListener('mousedown', function (evt) { evt.preventDefault(); applySelection(value); });
+      dropdown.appendChild(row);
+    });
+    document.body.appendChild(dropdown);
+  }
+
+  valueInput.addEventListener('input', function () {
+    clearTimeout(debounceTimer);
+    const current = isMultiField() ? valueInput.value.split(',').slice(-1)[0].trim() : valueInput.value.trim();
+    if (!current) { closeDropdown(); return; }
+    debounceTimer = setTimeout(function () {
+      fetch(FIELD_VALUES_URL + '?field=' + encodeURIComponent(fieldSelect.value) + '&q=' + encodeURIComponent(current))
+        .then(function (r) { return r.json(); })
+        .then(openDropdown);
+    }, 200);
+  });
+  valueInput.addEventListener('blur', function () { setTimeout(closeDropdown, 150); });
+  fieldSelect.addEventListener('change', function () { valueInput.value = ''; closeDropdown(); });
+
+  updateSelectedCount();
+  updateSelectAllState();
 })();
 </script>
 </body>

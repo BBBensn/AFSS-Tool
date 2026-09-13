@@ -4,6 +4,7 @@ from werkzeug.datastructures import MultiDict
 
 from afss.artist_editor.store import (
     artist_from_form,
+    bulk_set_field,
     delete_artist,
     distinct_field_values,
     load_artists,
@@ -335,6 +336,71 @@ def test_distinct_field_values_empty_query_returns_all_sorted(tmp_path):
 
     assert distinct_field_values(path, "ethnicity") == ["caucasian"]
     assert distinct_field_values(path, "nonexistent.path") == []
+
+
+def test_bulk_set_field_sets_scalar_on_selected_artists_only(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [
+            {"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {"nationality": "aut"}},
+            {"id": "a2", "canonical_name": "B", "aliases": [], "default_tags": {"nationality": "deu"}},
+            {"id": "a3", "canonical_name": "C", "aliases": [], "default_tags": {}},
+        ],
+    )
+
+    n = bulk_set_field(path, ["a1", "a3"], "nationality", "USA")
+
+    assert n == 2
+    artists = {a["id"]: a for a in load_artists(path)}
+    assert artists["a1"]["default_tags"]["nationality"] == "usa"
+    assert artists["a3"]["default_tags"]["nationality"] == "usa"
+    assert artists["a2"]["default_tags"]["nationality"] == "deu"
+
+
+def test_bulk_set_field_sets_nested_path(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(path, [{"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {}}])
+
+    bulk_set_field(path, ["a1"], "birth_place.country_iso", "AUT")
+
+    artists = load_artists(path)
+    assert artists[0]["default_tags"]["birth_place"]["country_iso"] == "aut"
+
+
+def test_bulk_set_field_replaces_list_field_from_csv(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [{"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {"occupation": ["old"]}}],
+    )
+
+    bulk_set_field(path, ["a1"], "occupation", "Model, Actress")
+
+    artists = load_artists(path)
+    assert artists[0]["default_tags"]["occupation"] == ["model", "actress"]
+
+
+def test_bulk_set_field_empty_value_clears_field(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(
+        path,
+        [{"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {"nationality": "aut"}}],
+    )
+
+    bulk_set_field(path, ["a1"], "nationality", "")
+
+    assert load_artists(path)[0]["default_tags"]["nationality"] == ""
+
+
+def test_bulk_set_field_unknown_id_updates_nothing(tmp_path):
+    path = tmp_path / "artists.json"
+    save_artists(path, [{"id": "a1", "canonical_name": "A", "aliases": [], "default_tags": {}}])
+
+    n = bulk_set_field(path, ["does_not_exist"], "nationality", "usa")
+
+    assert n == 0
+    assert load_artists(path)[0]["default_tags"] == {}
 
 
 def test_sync_artist_to_db_creates_new_row(tmp_path):

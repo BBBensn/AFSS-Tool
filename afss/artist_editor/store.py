@@ -194,6 +194,32 @@ def search_artists(path: Path, query: str, exclude_id: str = "") -> list[dict]:
     ][:25]
 
 
+_BULK_LIST_FIELDS = {"occupation", "artist_tags", "pierce_locations"}
+
+
+def bulk_set_field(artists_path: Path, artist_ids: list[str], field_path: str, value: str) -> int:
+    """Setzt ein default_tags-Feld (punktgetrennter Pfad wie bei distinct_field_values) bei mehreren
+    Artists gleichzeitig auf denselben Wert - ersetzt den bestehenden Wert komplett, genau wie ein
+    Speichern über das Einzel-Formular es täte (kein Zusammenführen mit vorhandenen Listenwerten,
+    um beide Wege konsistent zu halten). Leerer value löscht/leert das Feld."""
+    artists = load_artists(artists_path)
+    ids = set(artist_ids)
+    parts = field_path.split(".")
+    is_list = field_path in _BULK_LIST_FIELDS
+    updated = 0
+    for a in artists:
+        if a.get("id") not in ids:
+            continue
+        node = a.setdefault("default_tags", {})
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = _parse_csv_list_lower(value) if is_list else _lower(value)
+        updated += 1
+    if updated:
+        save_artists(artists_path, artists)
+    return updated
+
+
 def distinct_field_values(artists_path: Path, field_path: str, query: str = "", limit: int = 20) -> list[str]:
     """Liefert bereits vergebene Werte für ein default_tags-Feld (z.B. 'nationality' oder
     'birth_place.country_iso') über alle Artists hinweg - für Autocomplete im Formular, damit nicht
