@@ -3,6 +3,8 @@ import json
 from werkzeug.datastructures import MultiDict
 
 from afss.artist_editor.store import (
+    TABLE_COLUMNS,
+    artist_column_values,
     artist_from_form,
     bulk_set_field,
     delete_artist,
@@ -467,3 +469,54 @@ def test_save_artists_is_atomic_write(tmp_path):
     assert not path.with_suffix(".json.tmp").exists()
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["artists"][0]["canonical_name"] == "Alpha"
+
+
+def test_artist_column_values_covers_every_declared_column():
+    a = {"id": "a1", "canonical_name": "A", "aliases": ["x"], "active": True, "default_tags": {}}
+    columns = artist_column_values(a)
+    for key, _label in TABLE_COLUMNS:
+        assert key in columns
+        assert "text" in columns[key] and "sort" in columns[key] and "empty" in columns[key]
+
+
+def test_artist_column_values_formats_scalars_lists_and_measurements():
+    a = {
+        "id": "a1",
+        "canonical_name": "A",
+        "aliases": ["Alias One", "Alias Two"],
+        "active": True,
+        "default_tags": {
+            "gender_identity": "female",
+            "occupation": ["model", "actress"],
+            "number_videos": 12,
+            "number_videos_is_lower_bound": True,
+            "body_measurements_cm": {"bust_cm": "86", "waist_cm": "61", "hips_cm": "89"},
+            "is_currently_active": False,
+        },
+    }
+    columns = artist_column_values(a)
+
+    assert columns["aliases"]["text"] == "Alias One, Alias Two"
+    assert columns["gender"]["text"] == "female"
+    assert columns["occupation"]["text"] == "model, actress"
+    assert columns["videos"]["text"] == "12+"
+    assert columns["measurements"]["text"] == "86-61-89"
+    assert columns["is_currently_active"]["text"] == "nein"
+    assert columns["is_currently_active"]["sort"] == "0"
+    assert columns["active"]["text"] == "ja"
+
+
+def test_artist_column_values_empty_fields_marked_empty():
+    a = {"id": "a1", "canonical_name": "A", "aliases": [], "active": False, "default_tags": {}}
+    columns = artist_column_values(a)
+
+    assert columns["nationality"]["empty"] is True
+    assert columns["videos"]["text"] == ""
+    assert columns["videos"]["empty"] is True
+
+
+def test_artist_column_values_numeric_sort_is_zero_padded_for_correct_ordering():
+    small = artist_column_values({"id": "a1", "canonical_name": "A", "default_tags": {"height_cm": "95"}})
+    large = artist_column_values({"id": "a2", "canonical_name": "B", "default_tags": {"height_cm": "160"}})
+
+    assert small["height_cm"]["sort"] < large["height_cm"]["sort"]

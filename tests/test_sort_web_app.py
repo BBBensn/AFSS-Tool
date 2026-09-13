@@ -112,6 +112,19 @@ def test_index_renders_tree(tmp_path):
     assert b"1.mp4" in resp.data
 
 
+def test_index_renders_repeat_selection_button(tmp_path):
+    """Regression: 'Auswahl wiederholen'-Icon in der Verwaltungs-Box muss immer da sein - das JS
+    liest die zuletzt verwendete Auswahl aus sessionStorage, unabhängig vom Server-Render."""
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    app = create_app("p1", tmp_path / "config", db_path)
+    client = app.test_client()
+
+    resp = client.get("/sort/p1/")
+
+    assert b'id="repeat-selection-btn"' in resp.data
+
+
 def test_index_accepts_sort_query_param(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

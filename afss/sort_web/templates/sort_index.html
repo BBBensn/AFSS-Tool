@@ -168,6 +168,8 @@
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg>
 {%- elif name == 'swap' -%}
 <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4"/><path d="M20 17H7M11 13l-4 4 4 4"/></svg>
+{%- elif name == 'repeat' -%}
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v5h5"/><path d="M4.6 9A8 8 0 1112 20"/></svg>
 {%- endif -%}
 {%- endmacro %}
 <nav class="app-nav">
@@ -364,6 +366,8 @@
                     title="Override aufheben (nächster Resolve-Lauf berechnet wieder automatisch)">{{ icon('undo') }}</button>
             <button type="button" class="icon-btn" id="tag-replace-toggle-btn"
                     title="Tag umbenennen/entfernen (wirkt auf ALLE Profile, nicht nur die Auswahl)">{{ icon('swap') }}</button>
+            <button type="button" class="icon-btn" id="repeat-selection-btn"
+                    title="Letzte Auswahl wiederholen (die zuletzt bei einer Aktion markierten Dateien erneut anhaken)">{{ icon('repeat') }}</button>
           </div>
           <div class="tag-replace-panel" id="tag-replace-panel" hidden>
             <div class="tool-sublabel">Tag suchen (wirkt profilübergreifend auf alle Dateien)</div>
@@ -486,6 +490,17 @@
 const UI_STATE_KEY = 'afss_sort_ui_state_{{ profile_id }}';
 const HEADER_PIN_KEY = 'afss_sort_header_pinned';
 const HIDDEN_COLUMNS_KEY = 'afss_sort_hidden_columns';
+const LAST_SELECTION_KEY = 'afss_sort_last_selection_{{ profile_id }}';
+
+// Merkt sich die zuletzt bei einer Aktion markierten Datei-IDs (unabhängig vom UI_STATE_KEY, der
+// nur die Swap-zu-Swap-Wiederherstellung von Filter/Scroll betrifft) - der "Auswahl wiederholen"-
+// Button in der Verwaltungs-Box liest das wieder aus. Ohne das müsste man nach JEDER Aktion (z.B.
+// erst Artist setzen, dann noch einen Tag ergänzen) dieselbe Gruppe erneut von Hand zusammenklicken,
+// weil ein Swap wie ein normaler Save immer mit leeren Checkboxen neu aufbaut.
+function rememberSelection(ids) {
+  if (!ids || !ids.length) return;
+  try { sessionStorage.setItem(LAST_SELECTION_KEY, JSON.stringify(ids)); } catch (e) { /* privater Modus o.ä. */ }
+}
 // Je mehr Zuordnungs-Kategorien dazukommen (Studio war der Auslöser), desto voller wird die
 // Tabelle - über dieses Menü lässt sich jede optionale Spalte einzeln aus- und wieder einblenden,
 // statt das Layout mit jeder neuen Kategorie weiter zu stauchen. Checkbox/Datei bleiben immer da.
@@ -903,6 +918,28 @@ function initPage() {
   setupSingleTagAutocomplete(document.getElementById('tag-replace-old'));
   setupSingleTagAutocomplete(document.getElementById('tag-replace-new'));
 
+  const repeatSelectionBtn = document.getElementById('repeat-selection-btn');
+  if (repeatSelectionBtn) {
+    repeatSelectionBtn.addEventListener('click', function () {
+      let ids = [];
+      try { ids = JSON.parse(sessionStorage.getItem(LAST_SELECTION_KEY) || '[]'); } catch (e) { ids = []; }
+      if (!ids.length) { alert('Keine vorherige Auswahl gespeichert.'); return; }
+      const idSet = new Set(ids.map(String));
+      let restored = 0;
+      document.querySelectorAll('input[name="item_id"]:not(:disabled)').forEach(function (box) {
+        if (!idSet.has(box.value)) return;
+        box.checked = true;
+        restored += 1;
+        let details = box.closest('details');
+        while (details) {
+          if (!details.classList.contains('locked')) details.open = true;
+          details = details.parentElement ? details.parentElement.closest('details') : null;
+        }
+      });
+      if (!restored) alert('Keine der vorherigen Auswahl entspricht noch vorhandenen Dateien.');
+    });
+  }
+
   const tagReplaceToggleBtn = document.getElementById('tag-replace-toggle-btn');
   const tagReplacePanel = document.getElementById('tag-replace-panel');
   if (tagReplaceToggleBtn && tagReplacePanel) {
@@ -1072,6 +1109,7 @@ function initPage() {
       if (submitter && submitter.name && !formData.has(submitter.name)) {
         formData.append(submitter.name, submitter.value || '');
       }
+      rememberSelection(formData.getAll('item_id'));
       performSwap(url, { method: 'POST', body: formData });
     });
   }

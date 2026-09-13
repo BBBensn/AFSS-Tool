@@ -1,9 +1,12 @@
 from pathlib import Path
 
-from flask import Blueprint, Flask, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Flask, flash, jsonify, redirect, render_template, request, session, url_for
 
 from afss.artist_editor.import_parsers import parse_pasted_bio
 from afss.artist_editor.store import (
+    DEFAULT_VISIBLE_COLUMNS,
+    TABLE_COLUMNS,
+    artist_column_values,
     artist_from_form,
     bulk_set_field,
     delete_artist,
@@ -67,7 +70,16 @@ def build_artist_editor_blueprint(config_dir: Path, db_path: Path | None = None)
 
     def _render_index():
         artists = sorted(load_artists(artists_path), key=lambda a: a.get("canonical_name", "").lower())
-        return render_template("artist_list.html", artists=artists, bulk_fields=BULK_EDIT_FIELDS)
+        for a in artists:
+            a["columns"] = artist_column_values(a)
+        return render_template(
+            "artist_list.html",
+            artists=artists,
+            bulk_fields=BULK_EDIT_FIELDS,
+            table_columns=TABLE_COLUMNS,
+            default_visible_columns=list(DEFAULT_VISIBLE_COLUMNS),
+            last_bulk_ids=session.get("last_bulk_ids") or [],
+        )
 
     @bp.route("/")
     def index():
@@ -84,12 +96,16 @@ def build_artist_editor_blueprint(config_dir: Path, db_path: Path | None = None)
         elif field not in _BULK_EDIT_FIELD_LABELS:
             flash(f"Unbekanntes Feld: {field}", "error")
         else:
+            # Wird gemerkt (nicht nur einmalig geflasht), damit "Auswahl wiederholen" auch nach
+            # mehreren aufeinanderfolgenden Bulk-Aktionen auf derselben Gruppe noch funktioniert -
+            # genau der Workflow, der ohne das hier bei jeder Bestätigung von vorn anfangen müsste.
+            session["last_bulk_ids"] = artist_ids
             n = bulk_set_field(artists_path, artist_ids, field, value)
             label = _BULK_EDIT_FIELD_LABELS[field]
             if value.strip():
-                flash(f"{label} bei {n} Artist(s) auf '{value.strip()}' gesetzt.", "ok")
+                flash(f"{label} bei {n} Artist(s) auf '{value.strip()}' gesetzt.", "bulk-ok")
             else:
-                flash(f"{label} bei {n} Artist(s) geleert.", "ok")
+                flash(f"{label} bei {n} Artist(s) geleert.", "bulk-ok")
 
         return redirect(url_for("artist_editor.index"))
 

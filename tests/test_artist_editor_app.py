@@ -397,6 +397,35 @@ def test_bulk_without_selection_shows_error(tmp_path):
     assert "keine Artists ausgewählt".encode() in resp.data
 
 
+def test_index_renders_all_table_columns(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.get("/artists/")
+
+    for label in ("Sex at Birth", "Occupation", "Bra Size", "Maße", "Aktiv seit"):
+        assert label.encode() in resp.data
+
+
+def test_bulk_success_renders_repeat_selection_button(tmp_path):
+    config_dir = tmp_path / "config"
+    _seed_two(config_dir)
+    app = create_app(config_dir)
+    client = app.test_client()
+
+    resp = client.post(
+        "/artists/bulk",
+        data={"artist_id": ["artist_alpha", "artist_alpha_dup"], "field": "nationality", "value": "usa"},
+        follow_redirects=True,
+    )
+
+    assert b'id="repeat-selection-btn"' in resp.data
+    assert b"artist_alpha" in resp.data
+    assert b"artist_alpha_dup" in resp.data
+
+
 def test_bulk_rejects_field_outside_allow_list(tmp_path):
     config_dir = tmp_path / "config"
     _seed_two(config_dir)

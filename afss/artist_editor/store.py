@@ -220,6 +220,96 @@ def bulk_set_field(artists_path: Path, artist_ids: list[str], field_path: str, v
     return updated
 
 
+# Alle Spalten, die in der Artist-Liste ein-/ausblendbar sind - bewusst (fast) jedes Feld aus
+# DEFAULT_TAGS, damit sich ein gewünschter Wert direkt über alle Artists hinweg vergleichen lässt,
+# ohne jedes Mal ins Formular wechseln zu müssen. Reihenfolge bestimmt die Spaltenreihenfolge in der
+# Tabelle und im Ein-/Ausblenden-Menü.
+TABLE_COLUMNS = [
+    ("aliases", "Aliases"),
+    ("gender", "Gender"),
+    ("sex_assigned_at_birth", "Sex at Birth"),
+    ("sexual_orientation", "Orientation"),
+    ("nationality", "Nationality"),
+    ("ethnicity", "Ethnicity"),
+    ("birth_date", "Geburtsdatum"),
+    ("occupation", "Occupation"),
+    ("bra_size_eu", "Bra Size"),
+    ("boobs_type", "Boobs Type"),
+    ("body_type", "Body Type"),
+    ("hair_color", "Hair Color"),
+    ("eye_color", "Eye Color"),
+    ("height_cm", "Height (cm)"),
+    ("weight_kg", "Weight (kg)"),
+    ("measurements", "Maße"),
+    ("artist_tags", "Artist Tags"),
+    ("pierce_locations", "Piercings"),
+    ("priority", "Priority"),
+    ("active_since_year", "Aktiv seit"),
+    ("active_until_year", "Aktiv bis"),
+    ("is_currently_active", "Aktuell aktiv"),
+    ("videos", "Videos"),
+    ("active", "Aktiv"),
+]
+
+# Vorbelegung wie bisher (nur diese sechs waren vor v1.27.0 überhaupt vorhanden) - alles Neue kommt
+# eingeklappt dazu, damit ein Bestandsnutzer beim Update nicht plötzlich mit 24 Spalten dasteht.
+DEFAULT_VISIBLE_COLUMNS = {"aliases", "gender", "nationality", "ethnicity", "videos", "active"}
+
+
+def _num_sort(value, width: int = 8) -> str:
+    try:
+        return str(int(float(value))).zfill(width)
+    except (TypeError, ValueError):
+        return ""
+
+
+def artist_column_values(a: dict) -> dict:
+    """Bereitet für jede TABLE_COLUMNS-Spalte einen fertigen Anzeige- und Sortierwert auf - hält die
+    Formatierungslogik hier statt verteilt über Dutzende fast-identische Jinja-Blöcke im Template
+    (Kopfzeile + jede Zeile), die bei jeder neuen Spalte doppelt gepflegt werden müssten."""
+    tags = a.get("default_tags") or {}
+    measurements_cm = tags.get("body_measurements_cm") or {}
+    measurements = "-".join(v for v in (measurements_cm.get("bust_cm"), measurements_cm.get("waist_cm"), measurements_cm.get("hips_cm")) if v)
+    videos = tags.get("number_videos")
+    videos_text = "" if videos is None else str(videos) + ("+" if tags.get("number_videos_is_lower_bound") else "")
+    is_active = tags.get("is_currently_active")
+
+    def cell(text, sort: str | None = None) -> dict:
+        text = text or ""
+        return {"text": text, "sort": sort if sort is not None else text.lower(), "empty": not text}
+
+    return {
+        "aliases": cell(", ".join(a.get("aliases") or [])),
+        "gender": cell(tags.get("gender_identity")),
+        "sex_assigned_at_birth": cell(tags.get("sex_assigned_at_birth")),
+        "sexual_orientation": cell(tags.get("sexual_orientation")),
+        "nationality": cell(tags.get("nationality")),
+        "ethnicity": cell(tags.get("ethnicity")),
+        "birth_date": cell(tags.get("birth_date")),
+        "occupation": cell(", ".join(tags.get("occupation") or [])),
+        "bra_size_eu": cell(tags.get("bra_size_eu")),
+        "boobs_type": cell(tags.get("boobs_type")),
+        "body_type": cell(tags.get("body_type")),
+        "hair_color": cell(tags.get("hair_color")),
+        "eye_color": cell(tags.get("eye_color")),
+        "height_cm": cell(tags.get("height_cm"), _num_sort(tags.get("height_cm"))),
+        "weight_kg": cell(tags.get("weight_kg"), _num_sort(tags.get("weight_kg"))),
+        "measurements": cell(measurements),
+        "artist_tags": cell(", ".join(tags.get("artist_tags") or [])),
+        "pierce_locations": cell(", ".join(tags.get("pierce_locations") or [])),
+        "priority": cell(tags.get("priority")),
+        "active_since_year": cell(_active_year_text(tags.get("active_since_year")), _num_sort(tags.get("active_since_year"))),
+        "active_until_year": cell(_active_year_text(tags.get("active_until_year")), _num_sort(tags.get("active_until_year"))),
+        "is_currently_active": cell("ja" if is_active else "nein", "1" if is_active else "0"),
+        "videos": cell(videos_text, _num_sort(videos)),
+        "active": cell("ja" if a.get("active") else "nein", "1" if a.get("active") else "0"),
+    }
+
+
+def _active_year_text(year) -> str:
+    return "" if year is None else str(year)
+
+
 def distinct_field_values(artists_path: Path, field_path: str, query: str = "", limit: int = 20) -> list[str]:
     """Liefert bereits vergebene Werte für ein default_tags-Feld (z.B. 'nationality' oder
     'birth_place.country_iso') über alle Artists hinweg - für Autocomplete im Formular, damit nicht

@@ -24,16 +24,30 @@
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0 auto; padding: 2.5rem 1.5rem 4rem;
-    color: var(--fg); background: var(--bg); max-width: 1200px; line-height: 1.4;
+    color: var(--fg); background: var(--bg); max-width: 1300px; line-height: 1.4;
   }
   h1 { font-size: 1.4rem; margin: 0 0 0.2rem; }
   .count { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
-  .flash { padding: 0.6rem 0.9rem; border-radius: 5px; margin-bottom: 1.2rem; font-size: 0.9rem; }
+  .flash { padding: 0.6rem 0.9rem; border-radius: 5px; margin-bottom: 1.2rem; font-size: 0.9rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
   .flash-ok { background: #e6f6e6; border: 1px solid #99cc99; color: #1a1a1a; }
   .flash-error { background: var(--danger-bg); border: 1px solid var(--danger); }
   @media (prefers-color-scheme: dark) { .flash-ok { background: #123320; border-color: #2e7d4f; color: var(--fg); } }
-  table { border-collapse: collapse; width: 100%; margin-top: 1rem; border: 1px solid var(--border);
-    border-radius: 8px; overflow: hidden; }
+  .icon-btn-inline { flex: none; padding: 0.15rem 0.55rem; border: 1px solid currentColor; border-radius: 5px;
+    background: transparent; color: inherit; cursor: pointer; font-size: 0.95rem; line-height: 1.3; opacity: 0.8; }
+  .icon-btn-inline:hover { opacity: 1; }
+  /* border-collapse:collapse bricht "position: sticky" auf <th> in WebKit/Safari komplett (bekannter
+     Browser-Bug) - separate + spacing:0 sieht hier identisch aus (nur border-bottom ist gesetzt,
+     also keine doppelten Rahmen durch den Wechsel). WICHTIGER als der Safari-Fall: "overflow: hidden"
+     auf der Tabelle selbst (nur fürs Abrunden der Ecken gedacht) bricht "position: sticky" IN JEDEM
+     Browser, weil es die Tabelle selbst zum nächsten Scroll-Container macht statt des Viewports -
+     daher hier entfernt, die Eckenrundung übernehmen stattdessen gezielt die vier Eckzellen. */
+  table { border-collapse: separate; border-spacing: 0; width: 100%; margin-top: 1rem; border: 1px solid var(--border);
+    border-radius: 8px; }
+  thead tr:first-child th:first-child { border-top-left-radius: 8px; }
+  thead tr:first-child th:last-child { border-top-right-radius: 8px; }
+  tbody tr:last-child td:first-child { border-bottom-left-radius: 8px; }
+  tbody tr:last-child td:last-child { border-bottom-right-radius: 8px; }
   th, td { border-bottom: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; vertical-align: top; }
   th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); font-weight: 600;
     background: var(--th-bg); }
@@ -66,14 +80,15 @@
   .app-nav a:hover { color: var(--fg); }
   .app-nav a.active { color: var(--fg); border-bottom: 2px solid var(--fg); padding-bottom: 0.7rem; margin-bottom: -0.8rem; }
 
-  .header-controls { display: flex; gap: 0.3rem; align-items: center; margin-left: auto; position: relative; }
+  .header-controls { display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; position: relative; }
   .header-pin-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem;
     padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--btn-bg); color: var(--muted);
     cursor: pointer; font-size: 0.9rem; }
   .header-pin-btn:hover { background: var(--btn-hover); color: var(--fg); }
   .header-pin-btn.active { color: var(--accent); border-color: var(--accent); }
   .columns-menu { position: absolute; top: 120%; right: 0; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 6px; padding: 0.4rem 0.6rem; z-index: 10; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
+    border-radius: 6px; padding: 0.4rem 0.6rem; z-index: 10; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    max-height: 22rem; overflow-y: auto; }
   .columns-menu label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 400;
     text-transform: none; letter-spacing: normal; color: var(--fg); padding: 0.2rem 0; cursor: pointer; }
   .columns-menu input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
@@ -109,7 +124,13 @@
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for category, message in messages %}
-    <div class="flash flash-{{ 'error' if category == 'error' else 'ok' }}">{{ message }}</div>
+    <div class="flash flash-{{ 'error' if category == 'error' else 'ok' }}">
+      <span>{{ message }}</span>
+      {% if category == 'bulk-ok' and last_bulk_ids %}
+      <button type="button" id="repeat-selection-btn" class="icon-btn-inline"
+              data-ids='{{ last_bulk_ids|tojson }}' title="Diese Auswahl erneut markieren">↺ Auswahl wiederholen</button>
+      {% endif %}
+    </div>
   {% endfor %}
 {% endwith %}
 
@@ -144,12 +165,9 @@
     <tr>
       <th class="col-select"><input type="checkbox" id="select-all-checkbox" title="Alle sichtbaren auswählen"></th>
       <th class="sortable-col" data-sort-key="name">Canonical Name<span class="sort-arrow"></span></th>
-      <th data-col="aliases">Aliases</th>
-      <th class="sortable-col" data-sort-key="gender" data-col="gender">Gender<span class="sort-arrow"></span></th>
-      <th class="sortable-col" data-sort-key="nationality" data-col="nationality">Nationality<span class="sort-arrow"></span></th>
-      <th class="sortable-col" data-sort-key="ethnicity" data-col="ethnicity">Ethnicity<span class="sort-arrow"></span></th>
-      <th class="sortable-col" data-sort-key="videos" data-col="videos">Videos<span class="sort-arrow"></span></th>
-      <th class="sortable-col" data-sort-key="active" data-col="active">Aktiv<span class="sort-arrow"></span></th>
+      {% for key, label in table_columns %}
+      <th class="sortable-col" data-sort-key="{{ key }}" data-col="{{ key }}">{{ label }}<span class="sort-arrow"></span></th>
+      {% endfor %}
       <th>
         <div class="header-controls">
           <button type="button" class="header-pin-btn" id="header-pin-btn" title="Kopfzeile beim Scrollen fixieren">🔓</button>
@@ -161,26 +179,14 @@
   </thead>
   <tbody>
     {% for a in artists %}
-    {% set tags = a.default_tags or {} %}
-    {% set gender = tags.get('gender_identity') %}
-    {% set nationality = tags.get('nationality') %}
-    {% set ethnicity = tags.get('ethnicity') %}
-    {% set videos = tags.get('number_videos') %}
-    <tr data-search="{{ (a.canonical_name ~ ' ' ~ (a.aliases or [])|join(' ') ~ ' ' ~ (nationality or '') ~ ' ' ~ (ethnicity or ''))|lower }}"
-        data-sort-name="{{ a.canonical_name|lower }}" data-sort-gender="{{ (gender or '')|lower }}"
-        data-sort-nationality="{{ (nationality or '')|lower }}" data-sort-ethnicity="{{ (ethnicity or '')|lower }}"
-        data-sort-videos="{{ '%06d'|format(videos) if videos is not none else '' }}"
-        data-sort-active="{{ '1' if a.active else '0' }}">
+    <tr data-search="{{ (a.canonical_name ~ ' ' ~ (a.aliases or [])|join(' ') ~ ' ' ~ a.columns.nationality.text ~ ' ' ~ a.columns.ethnicity.text)|lower }}"
+        data-sort-name="{{ a.canonical_name|lower }}"
+        {% for key, label in table_columns %}data-sort-{{ key }}="{{ a.columns[key].sort }}" {% endfor %}>
       <td class="col-select"><input type="checkbox" class="row-select" form="bulk-form" name="artist_id" value="{{ a.id }}"></td>
       <td>{{ a.canonical_name }}</td>
-      <td class="aliases" data-col="aliases">{{ (a.aliases or [])|join(", ") }}</td>
-      <td data-col="gender">{{ gender or "—" }}</td>
-      <td class="{{ 'col-empty' if not nationality }}" data-col="nationality">{{ nationality or "—" }}</td>
-      <td class="{{ 'col-empty' if not ethnicity }}" data-col="ethnicity">{{ ethnicity or "—" }}</td>
-      <td class="{{ 'col-empty' if videos is none }}" data-col="videos">
-        {{ videos if videos is not none else "—" }}{{ "+" if tags.get('number_videos_is_lower_bound') and videos is not none }}
-      </td>
-      <td data-col="active">{{ "ja" if a.active else "nein" }}</td>
+      {% for key, label in table_columns %}
+      <td class="{{ 'col-empty' if a.columns[key].empty }}" data-col="{{ key }}">{{ a.columns[key].text or "—" }}</td>
+      {% endfor %}
       <td>
         <div class="row-actions">
           <a class="btn" href="{{ url_for('artist_editor.edit', artist_id=a.id) }}">Bearbeiten</a>
@@ -270,6 +276,23 @@
     }
   });
 
+  // Nach einer Bulk-Aktion setzt der Redirect alle Checkboxen zurück - dieser Button (in der
+  // Erfolgsmeldung) markiert exakt dieselben Artists erneut, damit z.B. "alle Frauen" nicht vor
+  // jedem weiteren Feld neu zusammengesucht werden müssen.
+  const repeatBtn = document.getElementById('repeat-selection-btn');
+  if (repeatBtn) {
+    repeatBtn.addEventListener('click', function () {
+      let ids = [];
+      try { ids = JSON.parse(repeatBtn.dataset.ids || '[]'); } catch (e) { ids = []; }
+      const idSet = new Set(ids);
+      tbody.querySelectorAll('.row-select').forEach(function (box) {
+        if (idSet.has(box.value)) box.checked = true;
+      });
+      updateSelectedCount();
+      updateSelectAllState();
+    });
+  }
+
   // -- Kopfzeile fixieren -------------------------------------------------------------------
   const HEADER_PIN_KEY = 'afss_artist_header_pinned';
   const pinBtn = document.getElementById('header-pin-btn');
@@ -291,21 +314,17 @@
 
   // -- Spalten ein-/ausblenden --------------------------------------------------------------
   const HIDDEN_COLUMNS_KEY = 'afss_artist_hidden_columns';
-  const COLUMN_DEFS = [
-    { key: 'aliases', label: 'Aliases' },
-    { key: 'gender', label: 'Gender' },
-    { key: 'nationality', label: 'Nationality' },
-    { key: 'ethnicity', label: 'Ethnicity' },
-    { key: 'videos', label: 'Videos' },
-    { key: 'active', label: 'Aktiv' },
-  ];
+  const COLUMN_DEFS = {{ table_columns|tojson }}.map(function (c) { return { key: c[0], label: c[1] }; });
+  const DEFAULT_VISIBLE = new Set({{ default_visible_columns|tojson }});
+  const DEFAULT_HIDDEN_COLUMNS = COLUMN_DEFS.filter(function (c) { return !DEFAULT_VISIBLE.has(c.key); })
+    .map(function (c) { return c.key; });
 
   function getHiddenColumns() {
     try {
       const raw = localStorage.getItem(HIDDEN_COLUMNS_KEY);
-      return raw === null ? [] : JSON.parse(raw);
+      return raw === null ? DEFAULT_HIDDEN_COLUMNS.slice() : JSON.parse(raw);
     } catch (e) {
-      return [];
+      return DEFAULT_HIDDEN_COLUMNS.slice();
     }
   }
 
