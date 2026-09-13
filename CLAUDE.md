@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.27.1`
+- Version: `1.28.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.27.1`
+- Aktuell: `v1.28.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -123,6 +123,11 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   - `v1.27.1` — Bugfix: Spalten-Vorbelegung nach v1.27.0 kaputt (alter localStorage-Wert `[]` aus der
     6-Spalten-Zeit liess alle 24 Spalten aufgeklappt starten) - neuer localStorage-Key, startet wieder
     sauber mit nur den bisherigen sechs Standard-Spalten sichtbar
+  - `v1.28.0` — neuer WSGI-Einstiegspunkt `afss/wsgi.py` (liest `AFSS_CONFIG_DIR`/`AFSS_DB_PATH`/
+    `AFSS_SECRET_KEY` aus der Umgebung) fuer den Deploy unter `afss.bensn.me` (Hetzner-Server,
+    hinter bestehendem bensn-auth Cookie-Login) - Sortier-Studio/Artist-/Tag-Editor brauchen fuer
+    ihre Kernfunktion nur `afss.db` + `config/*.json`, keinen Zugriff aufs NAS; scan/resolve/plan/
+    apply/transcode bleiben zwingend lokal
 
 ## Changelogs & Dokumentation
 

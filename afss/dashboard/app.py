@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from flask import Flask, flash, redirect, render_template, request, url_for
@@ -18,7 +19,10 @@ from afss.tag_web.app import build_tag_blueprint
 def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
     config_dir = Path(config_dir)
     app = Flask(__name__)
-    app.secret_key = "afss-local-dashboard"  # nur 127.0.0.1, kein Security-relevanter Wert
+    # Lokal (127.0.0.1) ist der Default unkritisch; sobald die App hinter einer echten Domain
+    # laeuft (siehe afss/wsgi.py), MUSS AFSS_SECRET_KEY gesetzt sein - sonst koennten Sessions
+    # (u.a. "Auswahl wiederholen" im Artist-Editor) mit dem hart codierten Wert gefaelscht werden.
+    app.secret_key = os.environ.get("AFSS_SECRET_KEY", "afss-local-dashboard")
     # Flasks Standardlimits fuer Formulardaten greifen schon bei ein paar tausend ausgewaehlten
     # item_id-Checkboxen im Sortier-Studio: MAX_FORM_MEMORY_SIZE (500 KB) fuehrte zu einem klaren
     # 413. MAX_FORM_PARTS (1000 Felder) betrifft multipart/form-data - genau das, was das Sortier-
