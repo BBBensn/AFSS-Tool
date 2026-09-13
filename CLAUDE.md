@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.27.0`
+- Version: `1.27.1`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.27.0`
+- Aktuell: `v1.27.1`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -120,6 +120,9 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     `default_tags`-Felder jetzt als Spalte verfuegbar statt nur 6; "Auswahl wiederholen"-Button nach
     Bulk-Aktionen (Artist-Liste + neues Icon im Sortier-Studio), damit dieselbe Gruppe nacheinander
     mehrfach bearbeitet werden kann; Header-Buttons (Lock/Spalten) jetzt tatsaechlich rechtsbuendig
+  - `v1.27.1` — Bugfix: Spalten-Vorbelegung nach v1.27.0 kaputt (alter localStorage-Wert `[]` aus der
+    6-Spalten-Zeit liess alle 24 Spalten aufgeklappt starten) - neuer localStorage-Key, startet wieder
+    sauber mit nur den bisherigen sechs Standard-Spalten sichtbar
 
 ## Changelogs & Dokumentation
 

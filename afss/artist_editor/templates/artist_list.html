@@ -313,7 +313,10 @@
   pinBtn.addEventListener('click', function () { setHeaderPinned(!table.classList.contains('header-pinned')); });
 
   // -- Spalten ein-/ausblenden --------------------------------------------------------------
-  const HIDDEN_COLUMNS_KEY = 'afss_artist_hidden_columns';
+  // _v2: v1.27.0 hat 18 neue Spalten ergänzt - der alte Key stand bei vielen Nutzern noch auf "[]"
+  // (aus der Zeit mit nur 6 Spalten, alle sichtbar), das hätte sonst auch alle neuen Spalten sofort
+  // aufgeklappt gezeigt statt eingeklappt zu starten. Neuer Key = sauberer Start mit den Defaults.
+  const HIDDEN_COLUMNS_KEY = 'afss_artist_hidden_columns_v2';
   const COLUMN_DEFS = {{ table_columns|tojson }}.map(function (c) { return { key: c[0], label: c[1] }; });
   const DEFAULT_VISIBLE = new Set({{ default_visible_columns|tojson }});
   const DEFAULT_HIDDEN_COLUMNS = COLUMN_DEFS.filter(function (c) { return !DEFAULT_VISIBLE.has(c.key); })
