@@ -23,9 +23,12 @@
     color: var(--fg); background: var(--bg); max-width: 760px; line-height: 1.4;
   }
   h1 { font-size: 1.4rem; margin: 0 0 1.5rem; }
-  .top-nav { margin-bottom: 1.5rem; }
-  .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  .top-nav a:hover { color: var(--fg); }
+  .app-nav { display: flex; gap: 1.2rem; align-items: center; padding-bottom: 1rem; margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border); }
+  .app-nav-logo { font-weight: 700; color: var(--fg); margin-right: auto; }
+  .app-nav a { color: var(--muted); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+  .app-nav a:hover { color: var(--fg); }
+  .app-nav a.active { color: var(--fg); border-bottom: 2px solid var(--fg); padding-bottom: 0.7rem; margin-bottom: -0.8rem; }
   section { margin-bottom: 2rem; }
   section h2 {
     font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
@@ -67,7 +70,13 @@
 </style>
 </head>
 <body>
-<div class="top-nav"><a href="{{ url_for('artist_editor.index') }}">← Übersicht</a></div>
+<nav class="app-nav">
+  <span class="app-nav-logo">AFSS</span>
+  <a href="/">Dashboard</a>
+  <a href="/sort/all/">Sortier-Studio</a>
+  <a href="/artists/" class="active">Artists</a>
+  <a href="/tags/">Tags</a>
+</nav>
 <h1>{{ "Bearbeiten: " + artist.canonical_name if artist else "Neuer Artist" }}</h1>
 
 {% with messages = get_flashed_messages(with_categories=true) %}

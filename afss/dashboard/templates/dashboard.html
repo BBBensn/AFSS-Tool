@@ -39,15 +39,24 @@
   button:hover, .btn-link:hover { background: var(--btn-hover); }
   .btn-danger { border-color: #c66; color: #d9534f; }
   input[type=text] { padding: 0.25rem; width: 12rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+  .app-nav { display: flex; gap: 1.2rem; align-items: center; padding-bottom: 1rem; margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border); }
+  .app-nav-logo { font-weight: 700; color: var(--fg); margin-right: auto; }
+  .app-nav a { color: var(--muted); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+  .app-nav a:hover { color: var(--fg); }
+  .app-nav a.active { color: var(--fg); border-bottom: 2px solid var(--fg); padding-bottom: 0.7rem; margin-bottom: -0.8rem; }
 </style>
 </head>
 <body>
+<nav class="app-nav">
+  <span class="app-nav-logo">AFSS</span>
+  <a href="/" class="active">Dashboard</a>
+  <a href="/sort/all/">Sortier-Studio</a>
+  <a href="/artists/">Artists</a>
+  <a href="/tags/">Tags</a>
+</nav>
 <h1>AFSS Dashboard</h1>
 <p class="config-path">Config: {{ config_dir }}</p>
-<p>
-  <a class="btn-link" href="{{ url_for('artist_editor.index') }}">Artists verwalten (artists.json)</a>
-  <a class="btn-link" href="{{ url_for('sort.index', profile_id='all') }}">Alle Profile sortieren (Sortier-Studio)</a>
-</p>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% for category, message in messages %}

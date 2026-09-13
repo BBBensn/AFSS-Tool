@@ -30,8 +30,12 @@
   * { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; color: var(--fg); background: var(--bg); }
   h1 { margin-bottom: 0.2rem; }
-  .top-nav { margin-bottom: 1rem; }
-  .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  .app-nav { display: flex; gap: 1.2rem; align-items: center; padding-bottom: 1rem; margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border); }
+  .app-nav-logo { font-weight: 700; color: var(--fg); margin-right: auto; }
+  .app-nav a { color: var(--muted); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+  .app-nav a:hover { color: var(--fg); }
+  .app-nav a.active { color: var(--fg); border-bottom: 2px solid var(--fg); padding-bottom: 0.7rem; margin-bottom: -0.8rem; }
   .flash { padding: 0.5rem 0.8rem; border-radius: 4px; margin: 0.3rem 0; }
   .flash-ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); }
   .flash-error { background: var(--flash-error-bg); border: 1px solid var(--flash-error-border); }
@@ -166,7 +170,13 @@
 <svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13M13 3l4 4-4 4"/><path d="M20 17H7M11 13l-4 4 4 4"/></svg>
 {%- endif -%}
 {%- endmacro %}
-<div class="top-nav"><a href="/">← Dashboard</a></div>
+<nav class="app-nav">
+  <span class="app-nav-logo">AFSS</span>
+  <a href="/">Dashboard</a>
+  <a href="/sort/all/" class="active">Sortier-Studio</a>
+  <a href="/artists/">Artists</a>
+  <a href="/tags/">Tags</a>
+</nav>
 <h1>Sortier-Studio — {{ profile_id }}</h1>
 
 <div id="app-root">

@@ -28,7 +28,12 @@ Ausführen erzeugt keine Duplikate), alles läuft offline/lokal ohne externe Met
 Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und bei Bedarf
 `anonymize`/`migrate-mapping` für Text-Anonymisierung.
 
-**Web-Oberflächen** (alle Flask, nur `127.0.0.1`):
+**Web-Oberflächen** (alle Flask, nur `127.0.0.1`). Dashboard, Sortier-Studio, Artist-Editor und
+Tag-Editor teilen dieselbe Nav-Leiste (Dashboard/Sortier-Studio/Artists/Tags, feste relative Pfade
+statt `url_for`, damit sie sowohl im Dashboard als auch standalone funktioniert) - kein
+gemeinsames Jinja-Base-Template, jede Seite bleibt ein eigenständiges HTML-Dokument, derselbe
+HTML/CSS-Schnipsel ist an jeder Stelle dupliziert. Die per-Profil Tag-Queue bleibt bewusst
+außerhalb dieser Leiste (kein sinnvoller profilunabhängiger Standard-Link):
 - `afss/dashboard/` — zentrale Steuerung aller Phasen pro Profil, verlinkt Artist-Editor und
   Sortier-Studio
 - `afss/artist_editor/` — Formular für `config/artists.json`, inkl. Bio-Text-Import

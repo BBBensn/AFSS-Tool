@@ -50,9 +50,22 @@
   #filter-input { padding: 0.4rem 0.6rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border);
     border-radius: 5px; font-size: 0.85rem; min-width: 16rem; }
   .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+  .app-nav { display: flex; gap: 1.2rem; align-items: center; padding-bottom: 1rem; margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border); }
+  .app-nav-logo { font-weight: 700; color: var(--fg); margin-right: auto; }
+  .app-nav a { color: var(--muted); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+  .app-nav a:hover { color: var(--fg); }
+  .app-nav a.active { color: var(--fg); border-bottom: 2px solid var(--fg); padding-bottom: 0.7rem; margin-bottom: -0.8rem; }
 </style>
 </head>
 <body>
+<nav class="app-nav">
+  <span class="app-nav-logo">AFSS</span>
+  <a href="/">Dashboard</a>
+  <a href="/sort/all/">Sortier-Studio</a>
+  <a href="/artists/" class="active">Artists</a>
+  <a href="/tags/">Tags</a>
+</nav>
 <h1>AFSS Artists</h1>
 <p class="count">{{ artists|length }} Einträge in artists.json</p>
 
