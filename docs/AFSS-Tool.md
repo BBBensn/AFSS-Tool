@@ -135,3 +135,34 @@ lokal, ohne dass eine Claude-Session mitlesen muss. Für den täglichen Sortier-
 braucht es Claude nicht; Claude wird gezielt für neue Features, Fehleranalyse oder Rückfragen
 hinzugezogen. Wenn dabei Beispieldaten geteilt werden müssen, bevorzugt anonymisiert
 (`afss anonymize`) oder in reduzierter Form statt vollständiger Ordnerlisten mit Klarnamen.
+
+## Online-Zugriff (`afss.bensn.me`)
+
+Seit v1.28.0 laufen Sortier-Studio, Artist-Editor und Tag-Editor zusätzlich auf dem Hetzner-Server
+(Gunicorn, `afss-web.service`, Port 5008), hinter dem bestehenden `bensn-auth`-Cookie-Login, unter
+`https://afss.bensn.me/` — für Tagging unterwegs (Handy o.ä.), ohne dass der Server Zugriff auf die
+externen Platten/das NAS braucht.
+
+- **Funktioniert online:** `/artists/`, `/sort/all/`, `/tags/` — brauchen nur `afss.db` +
+  `config/*.json`, die als Kopie auf dem Server liegen.
+- **Funktioniert online NICHT:** die Dashboard-Startseite (`/`) zeigt einen Fehler, weil
+  `config/legacy_profiles.yml` (echte Laufwerksnamen/Pfade) bewusst **nicht** auf den Server
+  übertragen wird - kein Problem, die drei Links oben reichen für den Tagging-Workflow.
+- **`scan`/`resolve`/`plan`/`apply`/`transcode` bleiben zwingend lokal** (brauchen die echten
+  Laufwerke) - das ändert der Server-Deploy nicht.
+
+**Sync-Workflow** (SQLite lässt sich nicht automatisch mergen, daher bewusst manuell statt
+Auto-Sync - jeweils vom Mac aus, Repo-Root):
+
+```bash
+# Vor einem neuen scan/resolve am Mac: erst evtl. unterwegs getaggte Änderungen runterziehen
+rsync -av root@178.104.133.228:/var/www/afss/config/artists.json config/artists.json
+rsync -av root@178.104.133.228:/var/www/afss/config/providers.json config/providers.json
+rsync -av root@178.104.133.228:/var/www/afss/config/studios.json config/studios.json
+rsync -av root@178.104.133.228:/var/www/afss/afss.db afss.db
+
+# Nach lokalen Änderungen (neuer Scan oder lokale Tag-Session): wieder hochladen
+rsync -av config/artists.json config/providers.json config/studios.json root@178.104.133.228:/var/www/afss/config/
+rsync -av afss.db root@178.104.133.228:/var/www/afss/afss.db
+ssh root@178.104.133.228 "chown -R www-data:www-data /var/www/afss/config /var/www/afss/afss.db && systemctl restart afss-web"
+```
