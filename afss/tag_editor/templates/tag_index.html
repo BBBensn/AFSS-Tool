@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>AFSS Tags</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #222222; --muted: #777777; --border: #dddddd;
+    --th-bg: #f7f7f7; --btn-bg: #fafafa; --btn-hover: #eeeeee;
+    --danger: #c0392b; --danger-bg: #fdecea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1c; --fg: #eaeaea; --muted: #949494; --border: #3a3a3c;
+      --th-bg: #232325; --btn-bg: #2a2a2c; --btn-hover: #353537;
+      --danger: #e57368; --danger-bg: #3a1f1f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0 auto; padding: 2.5rem 1.5rem 4rem;
+    color: var(--fg); background: var(--bg); max-width: 800px; line-height: 1.4;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 0.2rem; }
+  .count { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
+  .flash { padding: 0.6rem 0.9rem; border-radius: 5px; margin-bottom: 1.2rem; font-size: 0.9rem; }
+  .flash-ok { background: #e6f6e6; border: 1px solid #99cc99; color: #1a1a1a; }
+  .flash-error { background: var(--danger-bg); border: 1px solid var(--danger); }
+  @media (prefers-color-scheme: dark) { .flash-ok { background: #123320; border-color: #2e7d4f; color: var(--fg); } }
+  .top-bar { margin-bottom: 1rem; }
+  #filter-input { padding: 0.4rem 0.6rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 5px; font-size: 0.85rem; min-width: 16rem; }
+  table { border-collapse: collapse; width: 100%; margin-top: 0.5rem; }
+  th, td { border-bottom: 1px solid var(--border); padding: 0.5rem 0.6rem; text-align: left; vertical-align: middle; }
+  th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); font-weight: 600; }
+  th.sortable-col { cursor: pointer; user-select: none; }
+  th.sortable-col:hover { color: var(--fg); }
+  th.sortable-col.sort-active { color: var(--fg); font-weight: 700; }
+  .sort-arrow { display: inline-block; width: 0.8em; font-size: 0.85em; }
+  .count-cell { color: var(--muted); }
+  .row-actions { display: flex; gap: 0.4rem; align-items: center; position: relative; }
+  input[type=text] { padding: 0.35rem 0.5rem; background: var(--bg); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 5px; font-size: 0.85rem; width: 12rem; }
+  button {
+    padding: 0.35rem 0.7rem; border: 1px solid var(--border); border-radius: 5px;
+    background: var(--btn-bg); color: var(--fg); font-size: 0.85rem; cursor: pointer;
+  }
+  button:hover { background: var(--btn-hover); }
+  .btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-bg); }
+  .search-results { position: fixed; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    max-height: 10rem; overflow-y: auto; z-index: 10; }
+  .search-results div { padding: 0.3rem 0.5rem; cursor: pointer; }
+  .search-results div:hover { background: var(--btn-hover); }
+  .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+</style>
+</head>
+<body>
+<h1>AFSS Tags</h1>
+<p class="count">{{ total_tags }} unterschiedliche Tags im Einsatz</p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="flash flash-{{ 'error' if category == 'error' else 'ok' }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<div class="top-bar">
+  <input type="text" id="filter-input" placeholder="Tag suchen...">
+</div>
+
+{% if tags %}
+<table id="tag-table">
+  <thead>
+    <tr>
+      <th class="sortable-col" data-sort-key="name">Tag<span class="sort-arrow"></span></th>
+      <th class="sortable-col" data-sort-key="count">Dateien<span class="sort-arrow"></span></th>
+      <th>Umbenennen / Entfernen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in tags %}
+    <tr data-search="{{ t.name|lower }}" data-sort-name="{{ t.name|lower }}" data-sort-count="{{ '%08d'|format(t.count) }}">
+      <td>{{ t.name }}</td>
+      <td class="count-cell">{{ t.count }}</td>
+      <td>
+        <form method="post" action="{{ url_for('tag_editor.rename') }}" class="row-actions"
+              onsubmit="return confirm('Tag \'{{ t.name }}\' bei {{ t.count }} Datei(en) wie eingegeben ändern (leer = entfernen)?');">
+          <input type="hidden" name="old_tag" value="{{ t.name }}">
+          <input type="text" name="new_tag" class="rename-input" autocomplete="off" placeholder="neuer Name oder leer...">
+          <button type="submit">Anwenden</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Noch keine Tags vergeben.</p>
+{% endif %}
+
+<script>
+(function () {
+  const SEARCH_URL = '{{ url_for("tag_editor.search") }}';
+  const filterInput = document.getElementById('filter-input');
+  const table = document.getElementById('tag-table');
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+
+  filterInput.addEventListener('input', function () {
+    const q = filterInput.value.trim().toLowerCase();
+    tbody.querySelectorAll('tr').forEach(function (row) {
+      row.style.display = (!q || row.dataset.search.includes(q)) ? '' : 'none';
+    });
+  });
+
+  let currentSort = null;
+  table.querySelectorAll('.sortable-col').forEach(function (col) {
+    col.addEventListener('click', function () {
+      const key = col.dataset.sortKey;
+      const dir = (currentSort && currentSort.key === key && currentSort.dir === 'asc') ? 'desc' : 'asc';
+      currentSort = { key: key, dir: dir };
+      const prop = 'sort' + key.charAt(0).toUpperCase() + key.slice(1);
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort(function (a, b) { return (a.dataset[prop] || '').localeCompare(b.dataset[prop] || ''); });
+      if (dir === 'desc') rows.reverse();
+      rows.forEach(function (row) { tbody.appendChild(row); });
+      table.querySelectorAll('.sortable-col').forEach(function (c) {
+        const active = c === col;
+        c.classList.toggle('sort-active', active);
+        c.querySelector('.sort-arrow').textContent = active ? (dir === 'desc' ? '▼' : '▲') : '';
+      });
+    });
+  });
+
+  // Autocomplete im "neuer Name"-Feld - dieselbe Logik wie im Sortier-Studio, hier aber gegen
+  // einfache String-Listen statt {id,name}-Objekte (Tags haben kein ID-Konzept).
+  function setupRenameAutocomplete(input) {
+    let dropdown = null;
+    let timer = null;
+    function closeDropdown() { if (dropdown) { dropdown.remove(); dropdown = null; } }
+    function openDropdown(items) {
+      closeDropdown();
+      if (!items.length) return;
+      const rect = input.getBoundingClientRect();
+      dropdown = document.createElement('div');
+      dropdown.className = 'search-results';
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.top = rect.bottom + 'px';
+      dropdown.style.width = rect.width + 'px';
+      items.forEach(function (value) {
+        const row = document.createElement('div');
+        row.textContent = value;
+        row.addEventListener('mousedown', function (evt) {
+          evt.preventDefault();
+          input.value = value;
+          closeDropdown();
+        });
+        dropdown.appendChild(row);
+      });
+      document.body.appendChild(dropdown);
+    }
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (!q) { closeDropdown(); return; }
+      timer = setTimeout(function () {
+        fetch(SEARCH_URL + '?q=' + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(openDropdown);
+      }, 200);
+    });
+    input.addEventListener('blur', function () { setTimeout(closeDropdown, 150); });
+  }
+  document.querySelectorAll('.rename-input').forEach(setupRenameAutocomplete);
+})();
+</script>
+</body>
+</html>

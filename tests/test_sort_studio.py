@@ -10,6 +10,7 @@ from afss.sort_studio import (
     dissolve_collection,
     get_locked_artist_keys,
     get_profile_tree,
+    list_all_tags,
     remove_co_artist,
     rename_tag,
     save_tags,
@@ -645,6 +646,26 @@ def test_rename_tag_returns_zero_when_tag_not_used(tmp_path):
     _seed(db_path)
 
     assert rename_tag("nichtvorhanden", "x", db_path) == 0
+
+
+def test_list_all_tags_counts_usage_and_sorts_alphabetically(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("UPDATE media_items SET tags = 'fav, solo' WHERE id = 1")
+    cur.execute("UPDATE media_items SET tags = 'fav' WHERE id = 2")
+    conn.commit()
+    conn.close()
+
+    assert list_all_tags(db_path) == [{"name": "fav", "count": 2}, {"name": "solo", "count": 1}]
+
+
+def test_list_all_tags_empty_when_no_tags(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+
+    assert list_all_tags(db_path) == []
 
 
 def test_set_artist_locked_and_get_locked_artist_keys(tmp_path):

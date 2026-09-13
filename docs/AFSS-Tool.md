@@ -42,6 +42,11 @@ Dazwischen einmalig `migrate-legacy-json` (Artists/Providers importieren) und be
   Route `/artists/field-values`, feste Allow-Liste) - verhindert Nah-Duplikate durch Groß-/
   Kleinschreibung o.ä.; echte Festwert-Felder bleiben bei `<datalist>`. Die Artist-Liste hat einen
   Text-Filter und klickbar sortierbare Spalten (gleiches Muster wie im Sortier-Studio)
+- `afss/tag_editor/` — Übersicht aller im Sortier-Studio vergebenen Tags mit Nutzungszähler
+  (`sort_studio.py::list_all_tags`), Text-Filter, klickbar sortierbare Spalten. Umbenennen/
+  Zusammenführen/Entfernen direkt in der Liste (Autocomplete, nutzt `rename_tag()` weiter) - kein
+  eigener `config_dir` nötig, da Tags reiner DB-Freitext ohne JSON-Store sind. Route `/tags/` (auch
+  im Dashboard registriert), eigenständiger Befehl `afss tags`
 - `afss/sort_web/` (Logik in `afss/sort_studio.py`) — Sortier-Studio: zeigt alle `media_items`
   eines Profils gruppiert nach Artist → Collection, Checkbox-Mehrfachauswahl (inkl. Gruppen-Auswahl,
   Shift-Klick-Bereichsauswahl und "Alle Treffer auswählen" - markiert alle aktuell sichtbaren,

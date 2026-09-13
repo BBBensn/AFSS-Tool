@@ -121,6 +121,14 @@ def cmd_sort(args: argparse.Namespace) -> None:
     run_web(args.profile, Path(args.config_dir), port=args.port)
 
 
+def cmd_tags(args: argparse.Namespace) -> None:
+    init_schema()
+    from afss.tag_editor.app import run_web
+
+    print(f"Tag-Editor läuft auf http://127.0.0.1:{args.port} (nur lokal erreichbar)")
+    run_web(port=args.port)
+
+
 def cmd_apply(args: argparse.Namespace) -> None:
     init_schema()
     from afss.apply import apply_profile, delete_verified_sources
@@ -319,6 +327,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_sort.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
     p_sort.add_argument("--port", type=int, default=5153, help="Port (Standard: 5153)")
     p_sort.set_defaults(func=cmd_sort)
+
+    p_tags = sub.add_parser("tags", help="Tag-Editor: Übersicht/Umbenennen aller vergebenen Tags")
+    p_tags.add_argument("--port", type=int, default=5154, help="Port (Standard: 5154)")
+    p_tags.set_defaults(func=cmd_tags)
 
     p_apply = sub.add_parser("apply", help="Verifiziert kopieren (nicht verschieben)")
     p_apply.add_argument("--profile", required=True, help="Profile id")

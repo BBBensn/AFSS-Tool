@@ -449,3 +449,18 @@ def rename_tag(old_tag: str, new_tag: str, db_path: Path | None = None) -> int:
     conn.commit()
     conn.close()
     return updated
+
+
+def list_all_tags(db_path: Path | None = None) -> list[dict]:
+    """Liefert alle vergebenen Tags mit Nutzungszähler (Anzahl Dateien) - Grundlage für die
+    Tag-Editor-Übersicht. Wie search_tags()/rename_tag() global über alle Profile hinweg, direkt
+    aus der kommaseparierten Freitext-Spalte aufgesplittet, da es keine eigene Tags-Tabelle gibt."""
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT tags FROM media_items WHERE tags IS NOT NULL AND tags != ''")
+    counts: dict[str, int] = {}
+    for (raw,) in cur.fetchall():
+        for t in {t.strip() for t in raw.split(",") if t.strip()}:
+            counts[t] = counts.get(t, 0) + 1
+    conn.close()
+    return sorted(({"name": name, "count": count} for name, count in counts.items()), key=lambda x: x["name"].lower())
