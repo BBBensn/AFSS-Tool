@@ -157,13 +157,23 @@
         <label for="gender_identity">Gender Identity</label>
         <input type="text" id="gender_identity" name="gender_identity" list="gender-list" value="{{ tags.gender_identity }}">
         <datalist id="gender-list">
-          <option value="female"><option value="male"><option value="trans"><option value="non_binary">
+          <option value="female"><option value="male"><option value="non_binary">
         </datalist>
+        <p class="hint">Trans wird durch Sex Assigned at Birth ≠ Gender Identity ausgedrückt (z.B.
+          female + male = trans Frau) - kein eigener Wert, sonst geht die Richtung (trans Frau vs.
+          trans Mann) verloren.</p>
       </div>
       <div class="field">
         <label for="sex_assigned_at_birth">Sex Assigned at Birth</label>
         <input type="text" id="sex_assigned_at_birth" name="sex_assigned_at_birth" list="sex-list" value="{{ tags.sex_assigned_at_birth }}">
-        <datalist id="sex-list"><option value="female"><option value="male"></datalist>
+        <datalist id="sex-list"><option value="female"><option value="male"><option value="intersex"></datalist>
+      </div>
+      <div class="field">
+        <label for="sexual_orientation">Sexual Orientation</label>
+        <input type="text" id="sexual_orientation" name="sexual_orientation" list="orientation-list" value="{{ tags.sexual_orientation }}">
+        <datalist id="orientation-list">
+          <option value="heterosexual"><option value="homosexual"><option value="pansexual">
+        </datalist>
       </div>
       <div class="field">
         <label for="nationality">Nationality (ISO)</label>

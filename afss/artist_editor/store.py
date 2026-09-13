@@ -15,6 +15,7 @@ def slugify(name: str) -> str:
 DEFAULT_TAGS = {
     "gender_identity": "",
     "sex_assigned_at_birth": "",
+    "sexual_orientation": "",
     "birth_date": "",
     "occupation": [],
     "birth_place": {"city": "", "state": "", "country_iso": ""},
@@ -130,6 +131,7 @@ def artist_from_form(form) -> dict:
         "default_tags": {
             "gender_identity": _lower(form.get("gender_identity", "")),
             "sex_assigned_at_birth": _lower(form.get("sex_assigned_at_birth", "")),
+            "sexual_orientation": _lower(form.get("sexual_orientation", "")),
             "birth_date": serialize_partial_date(
                 form.get("birth_year", ""), form.get("birth_month", ""), form.get("birth_day", "")
             ),

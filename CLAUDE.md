@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.24.0`
+- Version: `1.25.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.24.0`
+- Aktuell: `v1.25.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -107,6 +107,10 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   - `v1.24.0` — Schritt 4/4 (Abschluss): visueller Politur-Pass - verfeinerte Sortier-Studio-
     Farbpalette auf Dashboard/Artist-Liste/Artist-Formular/Tag-Editor uebertragen, primaere Aktionen
     in Akzentfarbe; dabei zwei CSS-Spezifitaets-Kollisionen gefunden und behoben
+  - `v1.25.0` — Gender/Sex/Orientation ueberarbeitet: `sex_assigned_at_birth` um `intersex` ergaenzt;
+    `gender_identity`s `trans`-Wert entfernt (Datenpruefung zeigte: trans wird bereits verlustfrei
+    ueber Kombination beider Felder ausgedrueckt, ein eigener Wert haette Frau/Mann-Info verschluckt);
+    neues Feld `sexual_orientation`, bei allen 225 Artists mit `pansexual` vorbelegt
 
 ## Changelogs & Dokumentation
 

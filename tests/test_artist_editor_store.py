@@ -28,6 +28,7 @@ def test_artist_from_form_parses_types_correctly():
             "active": "on",
             "gender_identity": "female",
             "sex_assigned_at_birth": "female",
+            "sexual_orientation": "Pansexual",
             "birth_year": "1995",
             "birth_month": "5",
             "birth_day": "20",
@@ -68,6 +69,7 @@ def test_artist_from_form_parses_types_correctly():
     assert entry["notes"] == "Some notes"
 
     tags = entry["default_tags"]
+    assert tags["sexual_orientation"] == "pansexual"
     assert tags["birth_date"] == "1995-05-20"
     assert tags["occupation"] == ["actress", "model"]
     # Freitext-Attribute werden konsequent lowercase gespeichert (Vienna -> vienna),
@@ -130,6 +132,7 @@ def test_tags_with_defaults_fills_missing_keys_for_legacy_entries():
     assert merged["birth_place"] == {"city": "", "state": "", "country_iso": ""}
     assert merged["artist_tags"] == []
     assert merged["is_currently_active"] is True
+    assert merged["sexual_orientation"] == ""
 
 
 def test_upsert_artist_appends_new_and_preserves_others(tmp_path):
