@@ -155,7 +155,9 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
   Profil im Dashboard, übersteht künftige `resolve`-Läufe
 - ✅ Vierte Platte "T7" als Profil eingerichtet, gescannt und resolved (2026-09-11)
 - ✅ Online-Zugriff für Sortier-Studio/Artist-/Tag-Editor unter `afss.bensn.me` (hinter bensn-auth,
-  Hetzner-Server, Gunicorn) - Details siehe `docs/AFSS-Tool.md` "Online-Zugriff" (2026-09-14)
+  Hetzner-Server, Gunicorn) gebaut - **aktuell pausiert seit 2026-09-14** (Nutzer arbeitet vorerst
+  wieder lokal weiter, Dienst gestoppt, Setup + Datenstand bleiben liegen); Details + Wiederanknüpfen
+  siehe `docs/AFSS-Tool.md` "Online-Zugriff"
 - ⬜ Erster kompletter Realdaten-Durchlauf (scan→resolve→tag→dedupe→plan→apply→transcode) für
   mindestens ein Profil bis zum Ende
 - ⬜ (Zukunftsvision, noch kein Auftrag) Dropfolder-Automatisierung: neue Dateien landen in einem

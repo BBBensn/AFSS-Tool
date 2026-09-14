@@ -136,12 +136,27 @@ braucht es Claude nicht; Claude wird gezielt für neue Features, Fehleranalyse o
 hinzugezogen. Wenn dabei Beispieldaten geteilt werden müssen, bevorzugt anonymisiert
 (`afss anonymize`) oder in reduzierter Form statt vollständiger Ordnerlisten mit Klarnamen.
 
-## Online-Zugriff (`afss.bensn.me`)
+## Online-Zugriff (`afss.bensn.me`) — pausiert seit 2026-09-14
 
-Seit v1.28.0 laufen Sortier-Studio, Artist-Editor und Tag-Editor zusätzlich auf dem Hetzner-Server
+Seit v1.28.0 können Sortier-Studio, Artist-Editor und Tag-Editor zusätzlich auf dem Hetzner-Server
 (Gunicorn, `afss-web.service`, Port 5008), hinter dem bestehenden `bensn-auth`-Cookie-Login, unter
-`https://afss.bensn.me/` — für Tagging unterwegs (Handy o.ä.), ohne dass der Server Zugriff auf die
-externen Platten/das NAS braucht.
+`https://afss.bensn.me/` laufen — für Tagging unterwegs (Handy o.ä.), ohne dass der Server Zugriff
+auf die externen Platten/das NAS braucht.
+
+**Aktuell bewusst pausiert:** der Nutzer arbeitet vorerst wieder rein lokal weiter (Ordnung halten,
+leichter umbauen können) - Online-Zugriff + Mobile-Optimierung kommen später. `systemctl stop
+afss-web && systemctl disable afss-web` wurde ausgeführt, der Dienst läuft nicht mehr (Auth-Gate vor
+Nginx bleibt aktiv, ein Login-Versuch landet also weiterhin bei `auth.bensn.me`, nicht bei einem
+kaputten Backend). Server-Setup (Nginx-Vhost, SSL-Zertifikat, `/var/www/afss/`) und der letzte
+Datenstand (Stand 2026-09-14, an diesem Tag wurde online nichts getaggt - Mac-Kopie und
+Server-Kopie waren zum Pausieren-Zeitpunkt identisch) bleiben unangetastet liegen, damit ein
+Wiederanknüpfen später nur `systemctl enable --now afss-web` plus einem frischen Push der drei
+JSONs + `afss.db` (siehe Sync-Workflow unten) braucht - kein erneutes Aufsetzen von Nginx/Systemd/
+Zertifikat nötig.
+
+**Solange pausiert: NICHT** eigenständig wieder hochladen/runterladen, ohne vorher zu prüfen, ob
+zwischenzeitlich doch mal online getaggt wurde (Stand siehe oben) - sonst genau das Chaos, das der
+Nutzer vermeiden wollte.
 
 - **Funktioniert online:** `/artists/`, `/sort/all/`, `/tags/` — brauchen nur `afss.db` +
   `config/*.json`, die als Kopie auf dem Server liegen.
