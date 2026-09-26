@@ -37,6 +37,7 @@
   .root-path { color: var(--muted); font-size: 0.85em; }
   .stats { font-size: 0.9em; }
   .not-scanned { color: var(--muted); font-style: italic; }
+  .missing-warning { color: var(--flash-error-border); font-weight: 600; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
   .actions form { display: inline-flex; gap: 0.3rem; align-items: center; margin: 0; }
   button, .btn-link { padding: 0.35rem 0.7rem; cursor: pointer; border: 1px solid var(--border); border-radius: 6px;
@@ -105,6 +106,9 @@
           {% for media_type, count in stats.media_type_counts.items() %}
             {{ media_type }}: {{ count }}{% if not loop.last %}, {% endif %}
           {% endfor %}
+          {% if stats.missing_on_disk %}
+            <br><span class="missing-warning">⚠ {{ stats.missing_on_disk }} Datei(en) auf der Platte nicht gefunden</span>
+          {% endif %}
         {% else %}
           <span class="not-scanned">noch nicht gescannt</span>
         {% endif %}

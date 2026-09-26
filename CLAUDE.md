@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.28.0`
+- Version: `1.29.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.28.0`
+- Aktuell: `v1.29.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -128,6 +128,12 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     hinter bestehendem bensn-auth Cookie-Login) - Sortier-Studio/Artist-/Tag-Editor brauchen fuer
     ihre Kernfunktion nur `afss.db` + `config/*.json`, keinen Zugriff aufs NAS; scan/resolve/plan/
     apply/transcode bleiben zwingend lokal
+  - `v1.29.0` — **Kritischer Bugfix**: `scan_profile()` hat bei jedem Lauf ALLE `media_items` eines
+    Profils geloescht und neu eingefuegt - ein simples Rescan haette die gesamte manuelle Tagging-
+    Arbeit (Artist/Tags/Titel/Status/Co-Artists) fuers ganze Profil geloescht. Jetzt Upsert nach
+    `(profile_id, rel_path)`, Tagging-Spalten bleiben unangetastet, `id` bleibt stabil. Neu:
+    verschwundene Dateien werden als `missing_since` markiert statt geloescht (Dashboard-Warnung +
+    "⚠ fehlt"-Badge im Sortier-Studio statt stillschweigend zu verschwinden)
 
 ## Changelogs & Dokumentation
 

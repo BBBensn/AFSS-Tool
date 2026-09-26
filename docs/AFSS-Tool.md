@@ -126,7 +126,10 @@ Vier Profile gescannt, ca. 16.000 Media-Items insgesamt (Stand 2026-09-11):
   vorerst unter einem `_Compilations`-Platzhalter sammeln und später gezielt nachziehen
 - **Datenquellen wechselnd verfügbar** — externe Platten (`My Passport`, `Elements`, `Untitled`)
   sind nicht dauerhaft gemountet, NAS-Freigaben (`00_inbox` etc.) laufen über SMB und sind je nach
-  Netzwerkstatus mal verbunden, mal nicht — vor jedem `scan`/`apply`/`transcode`-Lauf kurz prüfen
+  Netzwerkstatus mal verbunden, mal nicht — vor jedem `scan`/`apply`/`transcode`-Lauf kurz prüfen.
+  Seit v1.29.0 kein Datenverlust-Risiko mehr, falls eine Platte doch mal kurz nicht gemountet war:
+  `scan` löscht nicht mehr fehlende Dateien, sondern markiert sie (`missing_since`), sichtbar im
+  Dashboard + als Badge im Sortier-Studio.
 
 ## Arbeitsweise
 

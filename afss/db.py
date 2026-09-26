@@ -166,6 +166,11 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         cur.execute("ALTER TABLE media_items ADD COLUMN tags TEXT")
     if "studio_id" not in columns:
         cur.execute("ALTER TABLE media_items ADD COLUMN studio_id TEXT REFERENCES studios(id)")
+    if "missing_since" not in columns:
+        # NULL = Datei war beim letzten scan() noch auf der Platte vorhanden. Gesetzt, sobald ein
+        # scan()-Lauf eine zuvor bekannte rel_path nicht mehr findet - scan() löscht solche Zeilen
+        # NICHT (z.B. eine kurz nicht gemountete Platte darf nicht wie eine echte Löschung aussehen).
+        cur.execute("ALTER TABLE media_items ADD COLUMN missing_since TEXT")
 
 
 def init_schema(db_path: Path | None = None) -> None:

@@ -118,6 +118,7 @@
   .remove-co-artist:hover { color: var(--fg); }
   .item-row .manual-badge { font-size: 0.7rem; color: var(--muted); border: 1px solid var(--border); border-radius: 3px;
     padding: 0 0.3rem; margin-left: 0.4rem; }
+  .item-row .missing-badge { color: var(--danger); border-color: var(--danger-border); font-weight: 600; }
   .col-coartists { display: flex; flex-wrap: wrap; gap: 0.25rem; align-content: center; padding: 0.2rem 0; }
   .col-coartists .manual-badge { margin-left: 0; white-space: nowrap; }
   .item-row input[type=text] { width: 100%; }
@@ -452,6 +453,7 @@
             {{ item.filename }}
             {% if profile_id == "all" %}<span class="manual-badge">{{ item.profile_id }}</span>{% endif %}
             {% if item.manual_override %}<span class="manual-badge">manuell</span>{% endif %}
+            {% if item.missing_since %}<span class="manual-badge missing-badge" title="Auf der Platte nicht gefunden seit {{ item.missing_since }}">⚠ fehlt</span>{% endif %}
           </div>
           <div class="rel-path">{{ item.rel_path }}</div>
         </div>

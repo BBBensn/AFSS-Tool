@@ -19,6 +19,10 @@ def cmd_scan(args: argparse.Namespace) -> None:
         f"Neue unbekannte Ordner: level1={result['unknown_folder_level1_count']}, "
         f"level2={result['unknown_folder_level2_count']}"
     )
+    if result["newly_missing"]:
+        print(f"⚠ {result['newly_missing']} Datei(en) neu als fehlend markiert (waren gescannt, jetzt nicht mehr gefunden)")
+    if result["missing_total"]:
+        print(f"⚠ Insgesamt {result['missing_total']} Datei(en) in diesem Profil als fehlend markiert")
 
 
 def cmd_resolve(args: argparse.Namespace) -> None:

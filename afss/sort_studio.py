@@ -94,7 +94,7 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None, sort_by: str 
         f"""
         SELECT m.id, m.filename, m.rel_path, m.media_type, m.artist_id, a.canonical_name,
                m.provider_id, p.canonical_name, m.studio_id, st.canonical_name, m.collection_name,
-               m.title_override, m.manual_override, m.item_status, m.tags, m.profile_id
+               m.title_override, m.manual_override, m.item_status, m.tags, m.profile_id, m.missing_since
         FROM media_items m
         LEFT JOIN artists a ON a.id = m.artist_id
         LEFT JOIN providers p ON p.id = m.provider_id
@@ -130,7 +130,7 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None, sort_by: str 
     for (
         item_id, filename, rel_path, media_type, artist_id, artist_name,
         provider_id, provider_name, studio_id, studio_name, collection_name,
-        title_override, manual_override, item_status, tags, item_profile_id,
+        title_override, manual_override, item_status, tags, item_profile_id, missing_since,
     ) in rows:
         artist_key = artist_id or "_unresolved"
         artist_entry = artists.setdefault(
@@ -159,6 +159,7 @@ def get_profile_tree(profile_id: str, db_path: Path | None = None, sort_by: str 
                 "studio_name": studio_name,
                 "title_override": title_override,
                 "manual_override": bool(manual_override),
+                "missing_since": missing_since,
                 "profile_id": item_profile_id,
                 "item_status": item_status or "active",
                 "tags": tags or "",

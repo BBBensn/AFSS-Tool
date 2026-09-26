@@ -138,6 +138,22 @@ def test_get_profile_tree_groups_by_artist_and_collection(tmp_path):
     assert unresolved["artist_name"] == "(kein Artist zugeordnet)"
 
 
+def test_get_profile_tree_exposes_missing_since(tmp_path):
+    db_path = tmp_path / "test.db"
+    _seed(db_path)
+    conn = get_connection(db_path)
+    conn.execute("UPDATE media_items SET missing_since = '2026-02-01T00:00:00' WHERE id = 2")
+    conn.commit()
+    conn.close()
+
+    tree = get_profile_tree("p1", db_path)
+
+    shoot_a = tree["artist_1"]["collections"]["Shoot A"]
+    by_id = {i["id"]: i for i in shoot_a["files"]}
+    assert by_id[2]["missing_since"] == "2026-02-01T00:00:00"
+    assert by_id[1]["missing_since"] is None
+
+
 def test_get_profile_tree_excludes_pending_duplicates(tmp_path):
     db_path = tmp_path / "test.db"
     _seed(db_path)

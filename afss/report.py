@@ -29,6 +29,10 @@ def report_overview(profile_id: str | None = None, db_path: Path | None = None) 
             "SELECT media_type, COUNT(*) FROM media_items WHERE profile_id = ? GROUP BY media_type", (pid,)
         )
         by_type = dict(cur.fetchall())
+        cur.execute(
+            "SELECT COUNT(*) FROM media_items WHERE profile_id = ? AND missing_since IS NOT NULL", (pid,)
+        )
+        missing_on_disk = cur.fetchone()[0]
         results.append(
             {
                 "profile_id": pid,
@@ -36,6 +40,7 @@ def report_overview(profile_id: str | None = None, db_path: Path | None = None) 
                 "resolved": resolved,
                 "unresolved": total - resolved,
                 "media_type_counts": by_type,
+                "missing_on_disk": missing_on_disk,
             }
         )
 
