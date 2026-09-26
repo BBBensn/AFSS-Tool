@@ -55,6 +55,13 @@ def create_app(config_dir: Path, db_path: Path | None = None) -> Flask:
             if action == "scan":
                 result = scan_profile(profile_id, config_dir, db_path)
                 flash(f"Scan '{profile_id}': {result['total_files']} Dateien gefunden.", "ok")
+                if result["walk_errors"]:
+                    flash(
+                        f"⚠ Scan '{profile_id}' war unvollständig ({len(result['walk_errors'])} Lese-Fehler, "
+                        "z.B. Verbindung gehakt) - Fehlend-Markierung wurde deshalb übersprungen. "
+                        "Verbindung prüfen und erneut scannen.",
+                        "error",
+                    )
             elif action == "resolve":
                 result = resolve_profile(profile_id, db_path)
                 flash(f"Resolve '{profile_id}': {result['resolved']}/{result['total']} resolved.", "ok")

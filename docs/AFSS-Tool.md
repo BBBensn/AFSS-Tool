@@ -129,7 +129,11 @@ Vier Profile gescannt, ca. 16.000 Media-Items insgesamt (Stand 2026-09-11):
   Netzwerkstatus mal verbunden, mal nicht — vor jedem `scan`/`apply`/`transcode`-Lauf kurz prüfen.
   Seit v1.29.0 kein Datenverlust-Risiko mehr, falls eine Platte doch mal kurz nicht gemountet war:
   `scan` löscht nicht mehr fehlende Dateien, sondern markiert sie (`missing_since`), sichtbar im
-  Dashboard + als Badge im Sortier-Studio.
+  Dashboard + als Badge im Sortier-Studio. Seit v1.30.0 zusätzlich abgesichert gegen einen kurz
+  hakenden USB/SMB-Zugriff MITTEN im Scan (os.walk schluckte Lese-Fehler vorher stillschweigend) -
+  bei Lese-Fehlern wird gar keine neue `missing_since`-Markierung gesetzt, statt eine potenziell
+  falsche. `afss reconcile-missing --profile <p>` findet danach eindeutige Name+Größe-Treffer unter
+  den echten "fehlend"-Fällen (z.B. nach einer Ordner-Umbenennung) und führt sie zusammen.
 
 ## Arbeitsweise
 

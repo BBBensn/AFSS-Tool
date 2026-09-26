@@ -5,7 +5,7 @@ from afss.db import init_schema
 from afss.migrate_legacy import migrate_legacy_json, sync_db_identities_to_json
 from afss.report import report_dedupe, report_missing, report_needs_review, report_overview
 from afss.resolve import resolve_profile
-from afss.scan import scan_profile
+from afss.scan import apply_moved_file_matches, find_moved_file_matches, scan_profile
 
 
 def cmd_scan(args: argparse.Namespace) -> None:
@@ -19,10 +19,38 @@ def cmd_scan(args: argparse.Namespace) -> None:
         f"Neue unbekannte Ordner: level1={result['unknown_folder_level1_count']}, "
         f"level2={result['unknown_folder_level2_count']}"
     )
+    if result["walk_errors"]:
+        print(f"⚠⚠ Scan war UNVOLLSTÄNDIG: {len(result['walk_errors'])} Lese-Fehler (z.B. Verbindung gehakt).")
+        print("   Fehlend-Markierung wurde deshalb übersprungen - bitte Verbindung prüfen und erneut scannen:")
+        for err in result["walk_errors"][:5]:
+            print(f"     {err}")
     if result["newly_missing"]:
         print(f"⚠ {result['newly_missing']} Datei(en) neu als fehlend markiert (waren gescannt, jetzt nicht mehr gefunden)")
     if result["missing_total"]:
         print(f"⚠ Insgesamt {result['missing_total']} Datei(en) in diesem Profil als fehlend markiert")
+
+
+def cmd_reconcile_missing(args: argparse.Namespace) -> None:
+    """Findet als 'missing' markierte Dateien, die vermutlich nur verschoben/umbenannt wurden (z.B.
+    durch eine Ordner-Umbenennung beim Sortieren) - erkannt an eindeutigem Dateiname+Größe-Treffer
+    unter den aktuell vorhandenen Dateien. Ohne --apply nur ein Trockenlauf (zeigt die Kandidaten,
+    ändert nichts) - wie bei `dedupe`/`plan`."""
+    init_schema()
+    matches = find_moved_file_matches(args.profile)
+    if not matches:
+        print(f"Keine eindeutigen Verschiebe-Kandidaten für Profil '{args.profile}' gefunden.")
+        return
+
+    print(f"{len(matches)} eindeutige Verschiebe-Kandidat(en) für Profil '{args.profile}':")
+    for m in matches:
+        print(f"  {m['missing_rel_path']}  ->  {m['present_rel_path']}")
+
+    if not args.apply:
+        print("\nTrockenlauf - nichts geändert. Mit --apply wirklich zusammenführen.")
+        return
+
+    merged = apply_moved_file_matches(matches)
+    print(f"\n{merged} Eintrag/Einträge zusammengeführt (alte 'missing'-Zeile jeweils entfernt).")
 
 
 def cmd_resolve(args: argparse.Namespace) -> None:
@@ -278,6 +306,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument("--profile", required=True, help="Profile id aus legacy_profiles.yml")
     p_scan.add_argument("--config-dir", default="config", help="Config-Verzeichnis (Standard: ./config)")
     p_scan.set_defaults(func=cmd_scan)
+
+    p_reconcile = sub.add_parser(
+        "reconcile-missing",
+        help="Als 'fehlend' markierte Dateien pruefen, ob sie nur verschoben/umbenannt wurden (Name+Groesse eindeutig)",
+    )
+    p_reconcile.add_argument("--profile", required=True, help="Profile id")
+    p_reconcile.add_argument("--apply", action="store_true", help="Gefundene Kandidaten wirklich zusammenführen")
+    p_reconcile.set_defaults(func=cmd_reconcile_missing)
 
     p_resolve = sub.add_parser("resolve", help="Ordnernamen gegen Artist/Provider-Aliase matchen")
     p_resolve.add_argument("--profile", required=True, help="Profile id")

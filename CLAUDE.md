@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.29.0`
+- Version: `1.30.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.29.0`
+- Aktuell: `v1.30.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -134,6 +134,13 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     `(profile_id, rel_path)`, Tagging-Spalten bleiben unangetastet, `id` bleibt stabil. Neu:
     verschwundene Dateien werden als `missing_since` markiert statt geloescht (Dashboard-Warnung +
     "⚠ fehlt"-Badge im Sortier-Studio statt stillschweigend zu verschwinden)
+  - `v1.30.0` — **Zweiter kritischer Bugfix**: `os.walk()` schluckte Lese-Fehler pro Verzeichnis
+    standardmaessig - eine kurz hakende USB/SMB-Verbindung haette einen ganzen, weiterhin
+    vorhandenen Unterordner uebersprungen und dessen Dateien faelschlich als "fehlend" markiert.
+    Scan sammelt Walk-Fehler jetzt und ueberspringt die missing_since-Markierung komplett, falls
+    welche auftraten. Neu: `afss reconcile-missing --profile <p> [--apply]` findet unter den
+    "fehlend"-Faellen eindeutige Name+Groesse-Treffer (z.B. nach Ordner-Umbenennung) und fuehrt sie
+    zusammen, ohne bestehende Tags zu ueberschreiben
 
 ## Changelogs & Dokumentation
 

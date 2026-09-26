@@ -1,9 +1,12 @@
+import os
+import stat
 from pathlib import Path
 
+import pytest
 import yaml
 
 from afss.db import get_connection, init_schema
-from afss.scan import scan_profile
+from afss.scan import apply_moved_file_matches, find_moved_file_matches, scan_profile
 from afss.tagging import set_trash
 
 
@@ -279,3 +282,135 @@ def test_scan_new_file_added_alongside_existing_tagged_files(tmp_path):
     conn.close()
     assert preserved == ("artist_one", 1)
     assert new_count == 1
+
+
+def test_scan_skips_missing_marking_when_walk_has_read_errors(tmp_path):
+    """Regression: os.walk() schluckt Lese-Fehler pro Verzeichnis standardmaessig - bei einer kurz
+    hakenden USB/SMB-Verbindung wuerde ein ganzer, weiterhin vorhandener Unterordner stillschweigend
+    uebersprungen und seine Dateien faelschlich als 'fehlend' markiert. Ein Scan mit Lese-Fehlern
+    darf daher gar keine neuen missing_since-Markierungen setzen."""
+    if os.geteuid() == 0:
+        pytest.skip("chmod-basierte Zugriffsverweigerung wirkt nicht als root")
+
+    root = tmp_path / "fake_root"
+    _build_fake_root(root)
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    scan_profile("test_profile", config_dir, db_path)
+
+    blocked_dir = root / "Artist One" / "Collection A"
+    original_mode = blocked_dir.stat().st_mode
+    blocked_dir.chmod(0o000)
+    try:
+        result = scan_profile("test_profile", config_dir, db_path)
+    finally:
+        blocked_dir.chmod(stat.S_IMODE(original_mode))
+
+    assert result["walk_errors"]
+    assert result["newly_missing"] == 0
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM media_items WHERE missing_since IS NOT NULL")
+    still_missing = cur.fetchone()[0]
+    conn.close()
+    assert still_missing == 0  # nichts wurde faelschlich als fehlend markiert
+
+
+def test_find_moved_file_matches_detects_unique_rename(tmp_path):
+    root = tmp_path / "fake_root"
+    _build_fake_root(root)
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    scan_profile("test_profile", config_dir, db_path)
+    conn = get_connection(db_path)
+    conn.execute(
+        "INSERT INTO artists(id, canonical_name) VALUES ('artist_one', 'Artist One')"
+    )
+    conn.execute(
+        "UPDATE media_items SET artist_id = 'artist_one', tags = 'favorite' WHERE filename = 'video1.mp4'"
+    )
+    conn.commit()
+    conn.close()
+
+    # Ordner-Umbenennung simulieren: "Collection A" -> "Collection Renamed"
+    (root / "Artist One" / "Collection A").rename(root / "Artist One" / "Collection Renamed")
+
+    scan_profile("test_profile", config_dir, db_path)
+    matches = find_moved_file_matches("test_profile", db_path)
+
+    video1_match = next(m for m in matches if m["filename"] == "video1.mp4")
+    assert video1_match["missing_rel_path"] == "Artist One/Collection A/video1.mp4"
+    assert video1_match["present_rel_path"] == "Artist One/Collection Renamed/video1.mp4"
+
+
+def test_find_moved_file_matches_ignores_ambiguous_same_name_and_size(tmp_path):
+    """Generische Dateinamen (z.B. '001.jpg') kommen in mehreren, voellig unabhaengigen Ordnern vor
+    und koennen zufaellig sogar dieselbe Groesse haben - ein Treffer wird nur vorgeschlagen, wenn
+    Name UND Groesse EINDEUTIG sind (genau ein Kandidat auf jeder Seite), sonst lieber gar kein
+    Vorschlag als eine falsche Zusammenfuehrung zweier unterschiedlicher Dateien."""
+    root = tmp_path / "fake_root"
+    (root / "SetA").mkdir(parents=True)
+    (root / "SetA" / "001.jpg").write_bytes(b"x" * 100)
+    (root / "SetB").mkdir(parents=True)
+    (root / "SetB" / "001.jpg").write_bytes(b"y" * 100)  # gleicher Name, gleiche Groesse, anderer Inhalt
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    scan_profile("test_profile", config_dir, db_path)
+    # Nur SetA wird umbenannt - SetB/001.jpg bleibt unangetastet stehen und sorgt so fuer eine
+    # zweideutige Situation: nach dem Rescan gibt es ZWEI "present" 001.jpg mit Groesse 100.
+    (root / "SetA").rename(root / "SetA_renamed")
+    scan_profile("test_profile", config_dir, db_path)
+
+    matches = find_moved_file_matches("test_profile", db_path)
+
+    assert matches == []  # zwei gleich grosse "present" Kandidaten -> nicht eindeutig, kein Vorschlag
+
+
+def test_apply_moved_file_matches_fills_blanks_and_removes_old_row(tmp_path):
+    root = tmp_path / "fake_root"
+    _build_fake_root(root)
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    scan_profile("test_profile", config_dir, db_path)
+    conn = get_connection(db_path)
+    conn.execute("INSERT INTO artists(id, canonical_name) VALUES ('artist_one', 'Artist One')")
+    conn.execute(
+        "UPDATE media_items SET artist_id = 'artist_one', tags = 'favorite', manual_override = 1 "
+        "WHERE filename = 'video1.mp4'"
+    )
+    old_id = conn.execute("SELECT id FROM media_items WHERE filename = 'video1.mp4'").fetchone()[0]
+    conn.commit()
+    conn.close()
+
+    (root / "Artist One" / "Collection A").rename(root / "Artist One" / "Collection Renamed")
+    scan_profile("test_profile", config_dir, db_path)
+    matches = find_moved_file_matches("test_profile", db_path)
+
+    merged = apply_moved_file_matches(matches, db_path)
+
+    assert merged == len(matches)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT artist_id, tags, manual_override, missing_since FROM media_items WHERE filename = 'video1.mp4'"
+    )
+    row = cur.fetchone()
+    cur.execute("SELECT COUNT(*) FROM media_items WHERE id = ?", (old_id,))
+    old_row_gone = cur.fetchone()[0] == 0
+    conn.close()
+
+    assert row == ("artist_one", "favorite", 1, None)
+    assert old_row_gone
