@@ -6,6 +6,7 @@ from afss.migrate_legacy import migrate_legacy_json, sync_db_identities_to_json
 from afss.report import report_dedupe, report_missing, report_needs_review, report_overview
 from afss.resolve import resolve_profile
 from afss.scan import apply_moved_file_matches, find_moved_file_matches, scan_profile
+from afss.tech_metadata import collect_technical_metadata
 
 
 def cmd_scan(args: argparse.Namespace) -> None:
@@ -51,6 +52,19 @@ def cmd_reconcile_missing(args: argparse.Namespace) -> None:
 
     merged = apply_moved_file_matches(matches)
     print(f"\n{merged} Eintrag/Einträge zusammengeführt (alte 'missing'-Zeile jeweils entfernt).")
+
+
+def cmd_collect_metadata(args: argparse.Namespace) -> None:
+    init_schema()
+    result = collect_technical_metadata(args.profile, force=args.force)
+    print(
+        f"'{result['profile_id']}': {result['candidates']} Kandidat(en), "
+        f"{result['probed']} erfolgreich geprobt, {len(result['failed'])} fehlgeschlagen."
+    )
+    for f in result["failed"][:20]:
+        print(f"  [FEHLER] item {f['item_id']}: {f['reason']}")
+    if len(result["failed"]) > 20:
+        print(f"  ... und {len(result['failed']) - 20} weitere")
 
 
 def cmd_resolve(args: argparse.Namespace) -> None:
@@ -314,6 +328,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_reconcile.add_argument("--profile", required=True, help="Profile id")
     p_reconcile.add_argument("--apply", action="store_true", help="Gefundene Kandidaten wirklich zusammenführen")
     p_reconcile.set_defaults(func=cmd_reconcile_missing)
+
+    p_metadata = sub.add_parser(
+        "collect-metadata",
+        help="Technische Video-Metadaten per ffprobe sammeln (Auflösung/Codec/Bitrate/Framerate) - vor transcode(), sonst verschwinden die Original-Werte",
+    )
+    p_metadata.add_argument("--profile", required=True, help="Profile id")
+    p_metadata.add_argument(
+        "--force", action="store_true", help="Auch bereits geprobte Dateien erneut prüfen (Standard: überspringen)"
+    )
+    p_metadata.set_defaults(func=cmd_collect_metadata)
 
     p_resolve = sub.add_parser("resolve", help="Ordnernamen gegen Artist/Provider-Aliase matchen")
     p_resolve.add_argument("--profile", required=True, help="Profile id")

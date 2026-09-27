@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.30.0`
+- Version: `1.31.0`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.30.0`
+- Aktuell: `v1.31.0`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -141,6 +141,12 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     welche auftraten. Neu: `afss reconcile-missing --profile <p> [--apply]` findet unter den
     "fehlend"-Faellen eindeutige Name+Groesse-Treffer (z.B. nach Ordner-Umbenennung) und fuehrt sie
     zusammen, ohne bestehende Tags zu ueberschreiben
+  - `v1.31.0` — neu `afss collect-metadata --profile <p> [--force]`: sammelt technische Video-
+    Metadaten (Aufloesung/Codec/Bitrate/Framerate/...) per ffprobe in neue Tabelle
+    `media_technical_info`, gedacht als Grundlage fuer spaetere Duplikat-/Qualitaetsvergleiche -
+    bewusst VOR transcode() (danach ist alles vereinheitlicht, die Unterschiede waeren weg).
+    Ueberspringt bereits geprobte Dateien ohne --force, committet alle 50 Dateien - sicher
+    fortsetzbar fuer einen langen unbeaufsichtigten Lauf ueber tausende Videos
 
 ## Changelogs & Dokumentation
 

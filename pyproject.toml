@@ -1,6 +1,6 @@
 [project]
 name = "afss"
-version = "1.30.0"
+version = "1.31.0"
 description = "AFSS media consolidation CLI"
 requires-python = ">=3.10"
 dependencies = [

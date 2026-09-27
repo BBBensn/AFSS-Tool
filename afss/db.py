@@ -122,6 +122,23 @@ CREATE TABLE IF NOT EXISTS sort_studio_locks(
     artist_key TEXT PRIMARY KEY,
     locked_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS media_technical_info(
+    media_item_id INTEGER PRIMARY KEY REFERENCES media_items(id),
+    width INTEGER,
+    height INTEGER,
+    video_codec TEXT,
+    video_bitrate INTEGER,
+    frame_rate REAL,
+    audio_codec TEXT,
+    audio_bitrate INTEGER,
+    audio_channels INTEGER,
+    audio_sample_rate INTEGER,
+    duration_seconds REAL,
+    container_format TEXT,
+    overall_bitrate INTEGER,
+    probed_at TEXT NOT NULL
+);
 """
 
 
