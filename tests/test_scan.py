@@ -1,5 +1,7 @@
 import os
 import stat
+import types
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -414,3 +416,122 @@ def test_apply_moved_file_matches_fills_blanks_and_removes_old_row(tmp_path):
 
     assert row == ("artist_one", "favorite", 1, None)
     assert old_row_gone
+
+
+def test_scan_stores_filenames_normalized_to_nfc(tmp_path):
+    """Regression v1.31.1: macOS/APFS speichert Dateinamen mit Akzenten/Umlauten/kyrillischen
+    Zeichen exakt so, wie sie geschrieben wurden (hier bewusst zerlegt/NFD angelegt) - Windows
+    liefert dieselben logischen Namen beim eigenen Scan zusammengesetzt (NFC). scan() muss
+    unabhängig von der Rohform des Dateisystems konsequent NFC speichern, sonst matcht der
+    Upsert-Unique-Key (profile_id, rel_path) eine vom anderen Betriebssystem gescannte Zeile nicht."""
+    root = tmp_path / "fake_root"
+    root.mkdir(parents=True)
+    nfd_name = unicodedata.normalize("NFD", "café.mp4")
+    (root / nfd_name).write_bytes(b"x")
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    scan_profile("test_profile", config_dir, db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT filename, rel_path FROM media_items WHERE profile_id = 'test_profile'")
+    filename, rel_path = cur.fetchone()
+    conn.close()
+
+    assert filename == unicodedata.normalize("NFC", filename)
+    assert rel_path == unicodedata.normalize("NFC", rel_path)
+    assert filename == "café.mp4"  # zusammengesetzte Form, nicht die zerlegte Rohform vom Dateisystem
+
+
+def test_rescan_matches_same_file_across_nfd_and_nfc_forms(tmp_path):
+    """Kern-Regressionstest fuer den v1.31.1-Bug: eine Datei, die einmal in zerlegter (NFD) und
+    einmal in zusammengesetzter (NFC) Form gescannt wird (genau das, was beim Wechsel macOS<->
+    Windows fuer dieselbe physische Datei passiert), darf NICHT als zwei verschiedene Dateien
+    behandelt werden - keine Dublette, keine faelschliche missing_since-Markierung, Tagging bleibt
+    an derselben Zeile (gleiche id) erhalten."""
+    root = tmp_path / "fake_root"
+    root.mkdir(parents=True)
+    nfd_name = unicodedata.normalize("NFD", "café.mp4")
+    nfc_name = unicodedata.normalize("NFC", "café.mp4")
+    (root / nfd_name).write_bytes(b"x" * 100)
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    scan_profile("test_profile", config_dir, db_path)
+    conn = get_connection(db_path)
+    conn.execute("INSERT INTO artists(id, canonical_name) VALUES ('artist_one', 'Artist One')")
+    conn.execute(
+        "UPDATE media_items SET artist_id = 'artist_one', tags = 'favorite', manual_override = 1 "
+        "WHERE profile_id = 'test_profile'"
+    )
+    original_id = conn.execute("SELECT id FROM media_items WHERE profile_id = 'test_profile'").fetchone()[0]
+    conn.commit()
+    conn.close()
+
+    # Simuliert einen Scan auf einem anderen Betriebssystem (z.B. Windows), das denselben Namen in
+    # zusammengesetzter Form liefert - dieselbe physische Datei, andere Rohbytes im Dateinamen.
+    (root / nfd_name).unlink()
+    (root / nfc_name).write_bytes(b"x" * 100)
+
+    result = scan_profile("test_profile", config_dir, db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM media_items WHERE profile_id = 'test_profile'")
+    total = cur.fetchone()[0]
+    cur.execute(
+        "SELECT id, artist_id, tags, manual_override, missing_since FROM media_items WHERE profile_id = 'test_profile'"
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    assert total == 1  # keine Dublette
+    assert row == (original_id, "artist_one", "favorite", 1, None)  # gleiche id, Tags erhalten, nicht "fehlend"
+    assert result["newly_missing"] == 0
+
+
+def test_scan_keeps_file_size_when_creation_timestamp_is_invalid(tmp_path, monkeypatch):
+    """Regression v1.31.1: manche NTFS-Dateien liefern ein kaputtes/leeres st_ctime (Windows-
+    FILETIME-Nullwert-Sentinel, Jahr 1601 -> ValueError bei datetime.fromtimestamp). Groesse und
+    mtime muessen davon unabhaengig trotzdem korrekt erfasst werden - vorher hat ein gemeinsames
+    try/except um alle drei Werte auch die eigentlich intakte Groesse mit verworfen."""
+    root = tmp_path / "fake_root"
+    root.mkdir(parents=True)
+    (root / "video.mp4").write_bytes(b"x" * 500)
+    config_dir = tmp_path / "config"
+    _write_profiles_yml(config_dir, "test_profile", root)
+    db_path = tmp_path / "test.db"
+    init_schema(db_path)
+
+    real_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        result = real_stat(self, *args, **kwargs)
+        if self.name == "video.mp4":
+            return types.SimpleNamespace(
+                st_size=result.st_size,
+                st_ctime=-99999999999999,  # ausserhalb des von datetime darstellbaren Bereichs
+                st_mtime=result.st_mtime,
+            )
+        return result
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+
+    scan_profile("test_profile", config_dir, db_path)
+
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT size_bytes, fs_created_at, fs_modified_at FROM media_items WHERE filename = 'video.mp4'"
+    )
+    size_bytes, fs_created_at, fs_modified_at = cur.fetchone()
+    conn.close()
+
+    assert size_bytes == 500  # bleibt trotz kaputtem ctime erhalten
+    assert fs_created_at is None  # konnte nicht konvertiert werden
+    assert fs_modified_at is not None  # unabhaengig davon weiterhin erfasst
