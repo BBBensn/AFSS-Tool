@@ -1,5 +1,6 @@
 import datetime
 import os
+import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -83,7 +84,16 @@ def scan_profile(profile_id: str, config_dir: Path, db_path: Path | None = None)
                 continue
             file_path = Path(dirpath) / fn
             rel = file_path.relative_to(root)
-            parts = rel.parts
+            # macOS (APFS/HFS+) speichert Dateinamen mit Umlauten/Akzenten/kyrillischen Zeichen
+            # zerlegt (NFD, z.B. "u" + Kombinationszeichen), Windows liefert dieselben Namen
+            # zusammengesetzt (NFC). Ohne Normalisierung matcht der Upsert unten (Unique-Key
+            # profile_id+rel_path) eine vom Mac gescannte Datei nicht mehr - die alte, ggf. bereits
+            # getaggte Zeile wird faelschlich als "fehlend" markiert, eine neue leere Zeile fuer
+            # dieselbe physische Datei angelegt. NFC ist der Windows-native Normalform, daher hier
+            # vereinheitlicht statt auf der Mac-Seite.
+            rel_str = unicodedata.normalize("NFC", rel.as_posix())
+            fn_normalized = unicodedata.normalize("NFC", fn)
+            parts = rel_str.split("/")
 
             ext = file_path.suffix.lower()
             media_type = classify_media_type(ext)
@@ -94,16 +104,32 @@ def scan_profile(profile_id: str, config_dir: Path, db_path: Path | None = None)
             try:
                 st = file_path.stat()
                 size_bytes = st.st_size
-                fs_created_at = datetime.datetime.fromtimestamp(st.st_ctime).isoformat()
-                fs_modified_at = datetime.datetime.fromtimestamp(st.st_mtime).isoformat()
             except OSError:
+                st = None
                 size_bytes = None
+
+            # Getrennte try/except pro Zeitstempel: manche Dateien (v.a. auf den NTFS-Platten, wohl
+            # vom urspruenglichen Kopiervorgang) haben eine kaputte/leere Windows-Erstellungszeit
+            # (st_ctime liefert dann das FILETIME-Nullwert-Sentinel, Jahr 1601 -> negativer, aus dem
+            # gueltigen Bereich fallender Unix-Timestamp -> OSError). Ein gemeinsames try/except um
+            # alle drei Werte wuerde dadurch auch die eigentlich intakte Dateigroesse/Aenderungszeit
+            # verwerfen - deshalb einzeln behandelt.
+            if st is not None:
+                try:
+                    fs_created_at = datetime.datetime.fromtimestamp(st.st_ctime).isoformat()
+                except (OSError, OverflowError, ValueError):
+                    fs_created_at = None
+                try:
+                    fs_modified_at = datetime.datetime.fromtimestamp(st.st_mtime).isoformat()
+                except (OSError, OverflowError, ValueError):
+                    fs_modified_at = None
+            else:
                 fs_created_at = None
                 fs_modified_at = None
 
             rows.append(
                 (
-                    profile_id, str(file_path), rel.as_posix(), fn, ext, media_type,
+                    profile_id, str(file_path), rel_str, fn_normalized, ext, media_type,
                     size_bytes, fs_created_at, fs_modified_at,
                     folder_level1, folder_level2, now_iso,
                 )

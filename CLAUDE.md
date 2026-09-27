@@ -6,7 +6,7 @@ Projekt-spezifische Ergänzung zur globalen `~/.claude/CLAUDE.md`. Ergänzt, üb
 ## Projekt-Basics
 
 - Name: `afss`
-- Version: `1.31.0`
+- Version: `1.31.1`
 - Beschreibung: Konsolidiert unstrukturierte Medien-Bibliotheken (verteilt über mehrere externe
   Festplatten/NAS) in eine saubere, benannte, getaggte Jellyfin-Library. SQLite (`afss.db`) als
   single source of truth statt verstreuter Skripte mit eigenem State.
@@ -30,7 +30,7 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
 
 ## Versionierung
 
-- Aktuell: `v1.31.0`
+- Aktuell: `v1.31.1`
 - Kurze Historie:
   - `v1.0.0` — Grundgerüst: Datenmodell, `scan`/`resolve`/`tag`/`anonymize`/`dedupe`/`plan`/`apply`,
     Web-Dashboard, Artist-Metadaten-Editor inkl. Bio-Import
@@ -147,6 +147,19 @@ globalen CLAUDE.md trifft auf dieses Projekt nicht zu.
     bewusst VOR transcode() (danach ist alles vereinheitlicht, die Unterschiede waeren weg).
     Ueberspringt bereits geprobte Dateien ohne --force, committet alle 50 Dateien - sicher
     fortsetzbar fuer einen langen unbeaufsichtigten Lauf ueber tausende Videos
+  - `v1.31.1` — **Zwei Windows-Kompatibilitaets-Bugfixes** (aufgefallen beim Erst-Scan der vier
+    Mac-getaggten Platten auf einem neuen Windows-PC): (1) macOS speichert Dateinamen mit Umlauten/
+    Akzenten/kyrillischen Zeichen zerlegt (NFD), Windows liefert sie beim Scan zusammengesetzt (NFC)
+    - der Upsert-Unique-Key `(profile_id, rel_path)` hat das nicht erkannt, eine vom Mac getaggte
+    Zeile wurde faelschlich "fehlend", eine neue leere Zeile fuer dieselbe Datei angelegt. `scan.py`
+    normalisiert `rel_path`/`filename` jetzt konsequent auf NFC. 156 durch den Bug bereits verwaiste
+    Zeilen (untitled: 3, elements: 7, my_passport: 146) wurden per Einmal-Skript zusammengefuehrt
+    (Tagging-Daten zurueck auf die sichtbare Zeile, Referenzen in `media_item_co_artists`/
+    `dedupe_group_members`/`media_technical_info` umgehaengt). (2) Ungueltige NTFS-Erstellungszeiten
+    (Windows-FILETIME-Nullwert-Sentinel, Jahr 1601) liessen `datetime.fromtimestamp()` einen
+    `OSError` werfen - das bisherige gemeinsame try/except um Groesse+beide Zeitstempel hat dadurch
+    auch die eigentlich intakte Dateigroesse mit verworfen (betraf ~3435 Dateien auf my_passport/t7).
+    Jetzt einzeln behandelt, Groesse bleibt erhalten, nur der kaputte Zeitstempel wird NULL.
 
 ## Changelogs & Dokumentation
 

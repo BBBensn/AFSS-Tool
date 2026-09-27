@@ -39,7 +39,7 @@ def probe_technical_info(path: Path) -> dict | None:
     try:
         result = subprocess.run(
             ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, encoding="utf-8", check=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return None
